@@ -8,7 +8,7 @@ from typing import List, Dict
 from app.melody_player import melody_player
 
 
-ALARMS_FILE = './resources/alarms.json'
+ALARMS_FILE = '/home/fwisn/Documents/camera-app/resources/alarms.json'
 
 DAY_TO_INT = {
     "monday": 0,

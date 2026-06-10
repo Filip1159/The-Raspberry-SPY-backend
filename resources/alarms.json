@@ -1,51 +1,51 @@
 [
   {
     "day": "monday",
-    "hour": 10,
+    "hour": 1,
     "minute": 15,
     "enabled": true,
     "melody": "Panic"
   },
   {
     "day": "tuesday",
-    "hour": 7,
-    "minute": 30,
+    "hour": 1,
+    "minute": 25,
     "enabled": true,
     "melody": "Nokia"
   },
   {
     "day": "wednesday",
-    "hour": 7,
-    "minute": 30,
+    "hour": 0,
+    "minute": 20,
     "enabled": true,
     "melody": "Are you sleeping"
   },
   {
     "day": "thursday",
-    "hour": 9,
-    "minute": 0,
+    "hour": 3,
+    "minute": 15,
     "enabled": true,
     "melody": "Twinkle"
   },
   {
     "day": "friday",
-    "hour": 9,
-    "minute": 0,
+    "hour": 2,
+    "minute": 10,
     "enabled": true,
     "melody": "Pink panther"
   },
   {
     "day": "saturday",
-    "hour": 12,
-    "minute": 0,
-    "enabled": false,
-    "melody": "Are you sleeping"
+    "hour": 0,
+    "minute": 5,
+    "enabled": true,
+    "melody": "Pirates"
   },
   {
     "day": "sunday",
-    "hour": 12,
+    "hour": 1,
     "minute": 0,
-    "enabled": false,
+    "enabled": true,
     "melody": "Panic"
   }
 ]

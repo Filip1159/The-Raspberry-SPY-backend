@@ -1,8 +1,8 @@
 from os import path
 
 
-KEY_PRIVATE_PATH = "./resources/private_key.pem"
-KEY_PUBLIC_PATH = "./resources/public_key.pem"
+KEY_PRIVATE_PATH = "/home/fwisn/Documents/camera-app/resources/private_key.pem"
+KEY_PUBLIC_PATH = "/home/fwisn/Documents/camera-app/resources/public_key.pem"
 
 
 def get_keys():

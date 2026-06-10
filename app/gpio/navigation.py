@@ -71,6 +71,7 @@ class Navigation:
                 self.__alarm_details_melody = melodies_list[(current_melody_idx + delta) % len(melodies_list)]
 
         self.__draw_active_view()
+        return delta
 
     
     def __draw_active_view(self):
