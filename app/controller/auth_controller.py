@@ -1,10 +1,13 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from flask import Blueprint, jsonify, request
 import json
 import jwt
 from jwcrypto import jwk
 
 from app.secret_provider import get_keys
+
+
+USERS_JSON_PATH = "/home/fwisn/Documents/camera-app/resources/users.json"
 
 
 auth = Blueprint("auth", __name__)
@@ -27,15 +30,19 @@ def login():
     username = data.get("username")
     password = data.get("password")
 
-    if username != "admin" or password != "1234":
-        return jsonify({"msg": "bad credentials"}), 401
+    with open(USERS_JSON_PATH, "r") as f:
+        users = json.load(f)
+        matching_users = list(filter(lambda u: u['username'] == username and u['password'] == password, users))
 
-    return prepare_token(username)
+        if len(matching_users) == 0:
+            return jsonify({"msg": "bad credentials"}), 401
+
+        return prepare_token(username)
 
 
 def prepare_token(username):
-    now = datetime.utcnow()
-    exp = now + timedelta(hours=12)
+    now = datetime.now(UTC)
+    exp = now + timedelta(minutes=30)
 
     permissions = [
         {"action": "publish", "path": "cam1"},
