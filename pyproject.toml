@@ -1,0 +1,23 @@
+[tool.ruff]
+line-length = 140
+target-version = "py313"
+
+exclude = [
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "I",   # sortowanie importów (isort)
+    "B",   # bugbear
+    "UP",  # modernizacja kodu
+]
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"

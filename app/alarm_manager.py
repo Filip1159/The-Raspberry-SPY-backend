@@ -1,31 +1,28 @@
-from datetime import datetime, timedelta
 import json
+from datetime import datetime, timedelta
 from os import path
 from threading import Event, Lock, Thread
-from time import sleep
-from typing import List, Dict
 
 from app.melody_player import melody_player
-
 
 ALARMS_FILE = '/home/fwisn/Documents/camera-app/resources/alarms.json'
 
 DAY_TO_INT = {
-    "monday": 0,
-    "tuesday": 1,
-    "wednesday": 2,
-    "thursday": 3,
-    "friday": 4,
-    "saturday": 5,
-    "sunday": 6,
+    'monday': 0,
+    'tuesday': 1,
+    'wednesday': 2,
+    'thursday': 3,
+    'friday': 4,
+    'saturday': 5,
+    'sunday': 6,
 }
 
 
-def load_schedule() -> List[Dict]:
+def load_schedule() -> list[dict]:
     if not path.exists(ALARMS_FILE):
         raise FileNotFoundError("Alarms config file doesn't exist")
 
-    with open(ALARMS_FILE, "r") as f:
+    with open(ALARMS_FILE) as f:
         return json.load(f)
 
 
@@ -34,46 +31,43 @@ class AlarmManager:
         self.__waiting_thread: Thread | None = None
         self.__lock = Lock()
         self.__stop_event = Event()
-        self.schedule: List[Dict] = []
+        self.schedule: list[dict] = []
         self.player = melody_player
         self.reload()
-
 
     def reload(self):
         with self.__lock:
             self.__stop_current_thread()
-        
+
             self.schedule = load_schedule()
             next_run, alarm = self.__find_next_run(self.schedule)
             self.__stop_event.clear()
 
             self.__waiting_thread = Thread(
                 target=self.__run_and_reschedule,
-                args=(next_run, alarm, ),
-                daemon=True
+                args=(
+                    next_run,
+                    alarm,
+                ),
+                daemon=True,
             )
             self.__waiting_thread.start()
 
-    
-    def save_day(self, new_alarm: Dict):
-        self.schedule = list(map(
-            lambda alarm: new_alarm if alarm['day'] == new_alarm['day'] else alarm,
-            self.schedule
-        ))
-        with open(ALARMS_FILE, "w", encoding="utf-8") as file:
+    def save_day(self, new_alarm: dict):
+        self.schedule = list(map(lambda alarm: new_alarm if alarm['day'] == new_alarm['day'] else alarm, self.schedule))
+        with open(ALARMS_FILE, 'w', encoding='utf-8') as file:
             json.dump(self.schedule, file, ensure_ascii=False, indent=2)
         self.reload()
 
-
-    def __find_next_run(self, schedule: List[Dict]) -> (datetime, Dict):
+    def __find_next_run(self, schedule: list[dict]) -> (datetime, dict):
         now = datetime.now()
         candidates = []
 
         for entry in schedule:
-            target_weekday = DAY_TO_INT[entry["day"]]
+            target_weekday = DAY_TO_INT[entry['day']]
             target_time = now.replace(
-                hour=entry["hour"],
-                minute=entry["minute"],
+                hour=entry['hour'],
+                minute=entry['minute'],
                 second=0,
                 microsecond=0,
             )
@@ -86,10 +80,9 @@ class AlarmManager:
 
             candidates.append((run_time, entry))
 
-        return min(candidates, key = lambda t: t[0])
+        return min(candidates, key=lambda t: t[0])
 
-
-    def __run_and_reschedule(self, run_at: datetime, alarm: Dict):
+    def __run_and_reschedule(self, run_at: datetime, alarm: dict):
         while not self.__stop_event.is_set():
             delay = (run_at - datetime.now()).total_seconds()
 
@@ -102,7 +95,6 @@ class AlarmManager:
 
             with self.__lock:
                 run_at, alarm = self.__find_next_run(self.schedule)
-
 
     def __stop_current_thread(self):
         if self.__waiting_thread and self.__waiting_thread.is_alive():

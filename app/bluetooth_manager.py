@@ -1,12 +1,11 @@
 import asyncio
 from datetime import datetime
 from threading import Event, Thread
-import time
-from queue import Queue
-from bleak import BleakScanner, BleakClient
 
-HM10_NAME = "BT05"
-CHAR_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
+from bleak import BleakClient, BleakScanner
+
+HM10_NAME = 'BT05'
+CHAR_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb'
 
 
 class BluetoothManager:
@@ -18,18 +17,12 @@ class BluetoothManager:
         self.last_updated = None
         self._thread = None
 
-
     def start(self):
-        self._thread = Thread(
-            target=self._run_event_loop,
-            daemon=True
-        )
+        self._thread = Thread(target=self._run_event_loop, daemon=True)
         self._thread.start()
-
 
     def _run_event_loop(self):
         asyncio.run(self._scanner_loop())
-
 
     async def _scanner_loop(self):
         while not self.stop_event.is_set():
@@ -40,8 +33,7 @@ class BluetoothManager:
             try:
                 await self._connect_and_receive(device)
             except Exception as e:
-                print(f"[HM10] Connection error: {e}")
-
+                print(f'[HM10] Connection error: {e}')
 
     async def _scan_for_device(self, timeout: float):
         devices = await BleakScanner.discover(timeout=timeout)
@@ -50,14 +42,13 @@ class BluetoothManager:
                 return d
         return None
 
-
     async def _connect_and_receive(self, device):
         async with BleakClient(device.address) as client:
             response_event = asyncio.Event()
 
             def notification_handler(_, data: bytearray):
                 try:
-                    text = data.decode("utf-8").strip()
+                    text = data.decode('utf-8').strip()
                 except UnicodeDecodeError:
                     text = repr(data)
 
@@ -66,15 +57,14 @@ class BluetoothManager:
 
             await client.start_notify(CHAR_UUID, notification_handler)
 
-            await client.write_gatt_char(CHAR_UUID, b"READ\n", response=False)
+            await client.write_gatt_char(CHAR_UUID, b'READ\n', response=False)
 
             try:
                 await asyncio.wait_for(response_event.wait(), timeout=2.0)
-            except asyncio.TimeoutError:
-                print("[HM10] Error: No response")
+            except TimeoutError:
+                print('[HM10] Error: No response')
 
             await client.stop_notify(CHAR_UUID)
-    
 
     def __parse_response(self, data: str):
         data_split = data.split(';')  # H=xx.x;T=xx.x;V=x.xx format

@@ -1,9 +1,9 @@
-from flask_socketio import SocketIO, send, emit
+from flask_socketio import SocketIO, send
 
 from app.gpio.gpio import camera_light
 from app.gpio.servos_controller import servos_controller
 
-socketio = SocketIO(cors_allowed_origins="*")
+socketio = SocketIO(cors_allowed_origins='*')
 
 
 @socketio.on('connect')
@@ -13,8 +13,8 @@ def handle_connect():
 
 @socketio.on('message')
 def handle_message(msg):
-    if msg.startswith("LED"):
-        print( float(msg[3:]) / 255)
+    if msg.startswith('LED'):
+        print(float(msg[3:]) / 255)
         camera_light.value = float(msg[3:]) / 255
     else:
         servos_controller.move(msg)

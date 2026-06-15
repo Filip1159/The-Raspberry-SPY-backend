@@ -1,18 +1,18 @@
-from datetime import datetime
-from RPLCD.i2c import CharLCD
-from gpiozero import Button, CPUTemperature, PWMLED, RotaryEncoder
-from threading import Timer, Thread
+import os
+from threading import Thread
 from time import sleep
+
+from gpiozero import PWMLED, Button, RotaryEncoder
+from RPLCD.i2c import CharLCD
+
 from app.alarm_manager import alarm_manager
 from app.bluetooth_manager import ble_manager
-from app.melody_player import melody_player
 from app.gpio.navigation import Navigation
 from app.gpio.servos_controller import servos_controller
-import os
+from app.melody_player import melody_player
 
-
-LED_TRIGGER = "/sys/class/leds/ACT/trigger"
-LED_BRIGHTNESS = "/sys/class/leds/ACT/brightness"
+LED_TRIGGER = '/sys/class/leds/ACT/trigger'
+LED_BRIGHTNESS = '/sys/class/leds/ACT/brightness'
 
 
 camera_light = PWMLED(14)
@@ -33,16 +33,16 @@ def navigation_loop():
             elif delta != 0:
                 seconds_without_activity = 0
                 lcd.backlight_enabled = True
-                os.system(f"echo 0 | sudo tee {LED_BRIGHTNESS} > /dev/null")
+                os.system(f'echo 0 | sudo tee {LED_BRIGHTNESS} > /dev/null')
             if seconds_without_activity > 5:
                 lcd.backlight_enabled = False
-                os.system(f"echo 1 | sudo tee {LED_BRIGHTNESS} > /dev/null")
+                os.system(f'echo 1 | sudo tee {LED_BRIGHTNESS} > /dev/null')
             sleep(0.1)
     finally:
-        os.system(f"echo default-off | sudo tee {LED_TRIGGER} > /dev/null")
+        os.system(f'echo default-off | sudo tee {LED_TRIGGER} > /dev/null')
 
 
-os.system(f"echo none | sudo tee {LED_TRIGGER} > /dev/null")
+os.system(f'echo none | sudo tee {LED_TRIGGER} > /dev/null')
 
 navigation_thread = Thread(target=navigation_loop, daemon=True)
 navigation_thread.start()
@@ -69,7 +69,7 @@ navigation_thread.start()
 # try:
 #     print("Przejmowanie kontroli nad diodą...")
 #     setup_led()
-    
+
 #     print("Miganie diodą przez 5 sekund...")
 #     for _ in range(5):
 #         set_led(1)  # Włącz

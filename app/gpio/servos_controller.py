@@ -1,5 +1,6 @@
-from rpi_hardware_pwm import HardwarePWM
 from enum import Enum, auto
+
+from rpi_hardware_pwm import HardwarePWM
 
 
 class Direction(Enum):
@@ -14,7 +15,7 @@ class Direction(Enum):
     DOWN_RIGHT = auto()
 
 
-def to_pwm(angle):  # duty = 0.5ms --- 2.5ms, T = 20ms, % = 2.5 --- 12.5 
+def to_pwm(angle):  # duty = 0.5ms --- 2.5ms, T = 20ms, % = 2.5 --- 12.5
     return 2.5 + angle / 180 * 10
 
 
@@ -33,7 +34,6 @@ class ServosController:
         self.horizontal_servo = HardwarePWM(pwm_channel=h_channel, hz=50, chip=0)
         self.horizontal_servo_angle = 0
         self.horizontal_servo.start(to_pwm(H_CENTER))
-
 
     def move(self, direction: str):
         dir = Direction[direction]
@@ -63,14 +63,12 @@ class ServosController:
             case Direction.DOWN_RIGHT:
                 self.try_go_down(1)
                 self.try_go_right(1)
-    
-                
+
     def try_go_up(self, diff):
         new_angle = max(-MAX_DEVIATION, self.vertical_servo_angle - diff)
         if self.vertical_servo_angle != new_angle:
             self.vertical_servo_angle = new_angle
             self.vertical_servo.change_duty_cycle(to_pwm(V_CENTER + self.vertical_servo_angle))
-
 
     def try_go_down(self, diff):
         new_angle = min(MAX_DEVIATION, self.vertical_servo_angle + diff)
@@ -78,13 +76,11 @@ class ServosController:
             self.vertical_servo_angle = new_angle
             self.vertical_servo.change_duty_cycle(to_pwm(V_CENTER + self.vertical_servo_angle))
 
-
     def try_go_left(self, diff):
         new_angle = min(MAX_DEVIATION, self.horizontal_servo_angle + diff)
         if self.horizontal_servo_angle != new_angle:
             self.horizontal_servo_angle = new_angle
             self.horizontal_servo.change_duty_cycle(to_pwm(H_CENTER + self.horizontal_servo_angle))
-
 
     def try_go_right(self, diff):
         new_angle = max(-MAX_DEVIATION, self.horizontal_servo_angle - diff)
