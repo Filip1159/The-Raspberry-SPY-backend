@@ -1,4 +1,4 @@
-"""Request validation shared by the Flask and the FastAPI version, so both answer with exactly the same errors"""
+"""Request validation for the REST API: plain functions returning the error message the frontend expects (400, not FastAPI's 422)"""
 
 from app.melody_player import MELODIES
 

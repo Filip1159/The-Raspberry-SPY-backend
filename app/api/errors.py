@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 
 
 class ApiError(Exception):
-    """An error with the exact JSON body the Flask version returned: {'error': ...} (400, 429) or {'msg': ...} (401)"""
+    """An error with the JSON body the frontend expects: {'error': ...} (400, 429) or {'msg': ...} (401)"""
 
     def __init__(self, status_code: int, body: dict, headers: dict[str, str] | None = None):
         self.status_code = status_code

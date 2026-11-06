@@ -1,5 +1,4 @@
 -r requirements.txt
--r requirements-fastapi.txt
 httpx>=0.28
 pytest>=8
 pytest-cov>=6

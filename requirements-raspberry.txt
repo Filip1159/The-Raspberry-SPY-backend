@@ -1,5 +1,5 @@
 # Everything needed on the Raspberry Pi: the core dependencies plus the hardware libraries
--r requirements-fastapi.txt
+-r requirements.txt
 bleak==2.1.1
 colorzero==2.0
 dbus-fast==3.1.2

@@ -6,10 +6,10 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     groups:
-      flask:
-        patterns: ["flask*", "Flask*", "werkzeug", "Werkzeug", "jinja2", "Jinja2", "itsdangerous", "markupsafe", "MarkupSafe", "click", "blinker"]
+      web:
+        patterns: ["fastapi", "starlette", "uvicorn*", "pydantic*", "anyio", "h11", "httptools", "uvloop", "websockets"]
       socketio:
-        patterns: ["*socketio*", "*engineio*", "simple-websocket", "wsproto", "h11", "bidict"]
+        patterns: ["*socketio*", "*engineio*", "simple-websocket", "wsproto", "bidict"]
   - package-ecosystem: github-actions
     directory: /
     schedule:

@@ -30,7 +30,7 @@ async def lifespan(_: FastAPI):
 
 
 class BodyLimitMiddleware:
-    """Answers 413 for bodies announcing more than MAX_BODY_BYTES (Flask's MAX_CONTENT_LENGTH)"""
+    """Answers 413 for bodies announcing more than MAX_BODY_BYTES"""
 
     def __init__(self, app):
         self.app = app
