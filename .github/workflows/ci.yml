@@ -29,5 +29,5 @@ jobs:
           ruff check .
           ruff format --check .
 
-      - name: Test (simulated hardware)
-        run: python -m pytest
+      - name: Test (simulated hardware) with coverage
+        run: python -m pytest --cov=app --cov-report=term-missing:skip-covered

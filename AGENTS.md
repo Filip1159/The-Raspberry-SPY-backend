@@ -25,7 +25,7 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
 python scripts/dev_setup.py        # creates .dev-data/: RS256 keys, users.json (demo/demo), alarms.json, greetings.json
 python main.py --fake              # Flask+SocketIO on :8080 (PORT env to change); CORS also allows http://localhost:4200
-python -m pytest                   # tests run against the simulated hardware
+python -m pytest                   # tests run against the simulated hardware (add --cov=app for coverage)
 ruff check . && ruff format .
 
 # Raspberry Pi
@@ -36,7 +36,7 @@ python main.py                     # DO NOT enable debug=True (breaks GPIO, see 
 - The Raspberry-only libraries (`gpiozero`, `RPLCD`, `rpi_hardware_pwm`, `bleak`, ...) are listed only in `requirements-raspberry.txt` and imported only by `app/hardware/raspberry.py`. Never import them elsewhere – that would break fake mode and CI.
 - Data directory (`DATA_DIR` env): `resources/` on the Pi, `.dev-data/` (gitignored) in fake mode, so local runs never touch tracked files.
 - The frontend can be pointed at a fake-mode backend with its `mock` Angular configuration (`localhost:8080`).
-- CI (`.github/workflows/ci.yml`): ruff + pytest on Ubuntu with the core requirements only.
+- CI (`.github/workflows/ci.yml`): ruff + pytest with a coverage report on Ubuntu with the core requirements only. Dependabot proposes weekly dependency updates (pip, Actions).
 - Deploy = `git pull` on the Pi (the checkout must contain `resources/users.json` and the keys, or set `DATA_DIR`), `pip install -r requirements-raspberry.txt` when dependencies changed, then restart Flask (and nginx/MediaMTX if their configs changed; copy `configs/default` to `/etc/nginx/sites-available/default`, `configs/mediamtx.yml` to `/mediamtx/mediamtx.yml`).
 
 ## Layout
@@ -50,7 +50,7 @@ app/json_store.py           # locked, atomic read/write/update of the JSON data 
 app/hardware/               # interfaces.py (Protocols), raspberry.py (real: gpiozero/RPLCD/PWM/BLE), fake.py (simulated), __init__.py = get_hardware() composition root
 app/local_interface.py      # LCD + rotary encoder UI loop (backlight/ACT LED auto-off); started from main.py
 app/dev_data.py + scripts/dev_setup.py  # generate keys/users/alarms/greetings for fake mode and tests
-tests/                      # pytest, simulated hardware, temp data dir (tests/conftest.py)
+tests/                      # pytest, simulated hardware, temp data dir (tests/conftest.py); alarm scheduler tests freeze `datetime` in app.alarm_manager
 app/server.py               # Flask app, JWT (RS256, public key), CORS, blueprints, SocketIO
 app/allowed_origins.py      # CORS/Socket.IO origin allow-list (+ EXTRA_ALLOWED_ORIGINS env for dev)
 app/controller/
@@ -59,7 +59,7 @@ app/controller/
   greetings_controller.py   # POST /greetings (public, max 500 chars, 3/min and 20/h per visitor, last 1000 kept), GET /greetings (JWT required)
   health_controller.py      # GET /health (public liveness probe, used by the frontend's offline detection)
   socket_controller.py      # Socket.IO: JWT required in handshake `auth.token` (else refused as 'unauthorized'); 'message' -> servo direction name or 'LED<0-255>'
-app/alarm_manager.py        # background thread waits for next weekly alarm, plays melody; alarms.json is source of truth
+app/alarm_manager.py        # background thread waits for the next ENABLED weekly alarm (none enabled = no thread), plays the melody; alarms.json is source of truth
 app/melody_player.py        # melodies (MELODIES dict) played in a thread through the Buzzer interface
 app/gpio/navigation.py      # LCD menu state machine (hello/menu/camera/alarms/alarm_details/stats/climate)
 app/gpio/servos_controller.py  # pan/tilt logic on top of two PwmChannel objects (real PWM needs a dtoverlay in /boot/firmware/config.txt, see CONFIGS.MD)

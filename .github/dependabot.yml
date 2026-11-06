@@ -1,0 +1,16 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      flask:
+        patterns: ["flask*", "Flask*", "werkzeug", "Werkzeug", "jinja2", "Jinja2", "itsdangerous", "markupsafe", "MarkupSafe", "click", "blinker"]
+      socketio:
+        patterns: ["*socketio*", "*engineio*", "simple-websocket", "wsproto", "h11", "bidict"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

@@ -39,17 +39,15 @@ class AlarmManager:
             self.__stop_current_thread()
 
             self.schedule = load_schedule()
-            next_run, alarm = self.__find_next_run(self.schedule)
             self.__stop_event.clear()
 
-            self.__waiting_thread = Thread(
-                target=self.__run_and_reschedule,
-                args=(
-                    next_run,
-                    alarm,
-                ),
-                daemon=True,
-            )
+            upcoming = self.__find_next_run(self.schedule)
+            if upcoming is None:
+                # Nothing is switched on: no thread has to wait. The next reload (saving an alarm) starts one.
+                self.__waiting_thread = None
+                return
+
+            self.__waiting_thread = Thread(target=self.__run_and_reschedule, args=upcoming, daemon=True)
             self.__waiting_thread.start()
 
     def save_day(self, new_alarm: dict):
@@ -58,11 +56,16 @@ class AlarmManager:
             json.dump(self.schedule, file, ensure_ascii=False, indent=2)
         self.reload()
 
-    def __find_next_run(self, schedule: list[dict]) -> (datetime, dict):
+    def __find_next_run(self, schedule: list[dict]) -> tuple[datetime, dict] | None:
+        """The next time an enabled alarm should ring, or None when no alarm is enabled"""
         now = datetime.now()
         candidates = []
 
         for entry in schedule:
+            # entries without the flag (older alarms.json files) keep ringing
+            if not entry.get('enabled', True):
+                continue
+
             target_weekday = DAY_TO_INT[entry['day']]
             target_time = now.replace(
                 hour=entry['hour'],
@@ -79,7 +82,7 @@ class AlarmManager:
 
             candidates.append((run_time, entry))
 
-        return min(candidates, key=lambda t: t[0])
+        return min(candidates, key=lambda t: t[0]) if candidates else None
 
     def __run_and_reschedule(self, run_at: datetime, alarm: dict):
         while not self.__stop_event.is_set():
@@ -93,7 +96,11 @@ class AlarmManager:
             self.player.play(alarm['melody'])
 
             with self.__lock:
-                run_at, alarm = self.__find_next_run(self.schedule)
+                upcoming = self.__find_next_run(self.schedule)
+
+            if upcoming is None:
+                return
+            run_at, alarm = upcoming
 
     def __stop_current_thread(self):
         if self.__waiting_thread and self.__waiting_thread.is_alive():
