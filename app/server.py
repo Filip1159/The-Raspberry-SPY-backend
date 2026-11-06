@@ -6,6 +6,7 @@ from app.allowed_origins import ALLOWED_ORIGINS
 from app.controller.alarms_controller import alarms
 from app.controller.auth_controller import auth
 from app.controller.greetings_controller import greetings
+from app.controller.health_controller import health
 from app.controller.socket_controller import socketio
 from app.secret_provider import KEY_PUBLIC_PATH
 
@@ -18,6 +19,7 @@ CORS(app, origins=ALLOWED_ORIGINS)
 app.register_blueprint(alarms)
 app.register_blueprint(auth)
 app.register_blueprint(greetings)
+app.register_blueprint(health)
 socketio.init_app(app)
 
 
