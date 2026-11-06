@@ -44,9 +44,24 @@ The tunnel is managed from the Cloudflare dashboard, so there is no config file 
 2. Choose Debian / arm64 and run the displayed commands on the Raspberry. The last one is `sudo cloudflared service install <token>`, which installs and enables the systemd service.
 3. Add a public hostname: subdomain `api`, domain `filipwisniewski.pl`, service `HTTP`, URL `localhost:5000`. The DNS record is created automatically.
 
-Check: `curl -i https://api.filipwisniewski.pl/flask/.well-known/jwks.json`
+Check: `curl -i https://api.filipwisniewski.pl/api/.well-known/jwks.json` (`/flask/...` is the old alias and still works)
 
-Allowed browser origins are set in `app/allowed_origins.py` (Flask, Socket.IO) and `hlsAllowOrigin` in `mediamtx.yml`. For local development set `EXTRA_ALLOWED_ORIGINS=http://localhost:4200`.
+Allowed browser origins are set in `app/allowed_origins.py` (FastAPI, Socket.IO) and `hlsAllowOrigin` in `mediamtx.yml`. For local development set `EXTRA_ALLOWED_ORIGINS=http://localhost:4200`.
+
+# Switching from Flask to FastAPI (one-time, on the Raspberry)
+
+Do this **before** the frontend that calls `/api` is deployed (the old frontend keeps working through the `/flask` alias):
+
+```bash
+cd <checkout> && git pull
+pip install -r requirements-raspberry.txt          # now includes fastapi + uvicorn
+sudo cp configs/default /etc/nginx/sites-available/default && sudo nginx -t && sudo systemctl reload nginx
+# stop the old Flask process, then start the backend the way you started Flask before:
+python main.py                                      # FastAPI on :8080
+curl -i http://localhost:5000/api/health && curl -i https://api.filipwisniewski.pl/flask/health
+```
+
+Rollback: stop it and run `python main_flask.py` (nginx needs no change). In Cloudflare add `/api/login` and `/api/greetings` to the rate-limiting rule (below).
 
 # Users and passwords
 
@@ -64,7 +79,7 @@ An old `users.json` with plain-text passwords is migrated automatically the firs
 
 The backend limits failed `POST /login` attempts (5/minute, 20/hour per visitor) and `POST /greetings` (3/minute, 20/hour per visitor), answering `429`. Visitors are told apart by the `CF-Connecting-IP` header that Cloudflare adds (nginx passes it on). As a second layer, add a rate limiting rule in Cloudflare (Security -> WAF -> Rate limiting rules; the free plan allows one rule):
 
-- If incoming requests match: `(http.host eq "api.filipwisniewski.pl" and http.request.uri.path in {"/flask/login" "/flask/greetings"})`
+- If incoming requests match: `(http.host eq "api.filipwisniewski.pl" and http.request.uri.path in {"/api/login" "/api/greetings" "/flask/login" "/flask/greetings"})`
 - Same characteristics: IP, rate: 10 requests per 10 seconds, action: Block for 10 seconds
 
 # Python dependencies

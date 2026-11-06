@@ -3,8 +3,9 @@ server {
 
     server_name localhost;
 
-    location /flask {
-        rewrite ^/flask(.*)$ $1 break;
+    # The API is served under /api; /flask is the old prefix and keeps working until every client uses /api
+    location ~ ^/(api|flask)(/|$) {
+        rewrite ^/(?:api|flask)(.*)$ $1 break;
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

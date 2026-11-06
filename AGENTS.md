@@ -1,12 +1,12 @@
 # The Raspberry SPY – backend
 
-Python/Flask backend running **on a Raspberry Pi 5** (home network). It drives the hardware (camera pan/tilt servos, camera light, buzzer, 20x4 LCD + rotary encoder), schedules alarms, reads a BLE climate sensor, and issues the JWTs the frontend and MediaMTX use. Frontend repo: `../The-Raspberry-SPY-frontend` (Angular, on GitHub Pages at `https://filipwisniewski.pl`). The shared backlog is `BACKLOG.md` in the **frontend** repo.
+Python backend (**FastAPI** + python-socketio on uvicorn; the old Flask version is kept as a fallback) running **on a Raspberry Pi 5** (home network). It drives the hardware (camera pan/tilt servos, camera light, buzzer, 20x4 LCD + rotary encoder), schedules alarms, reads a BLE climate sensor, and issues the JWTs the frontend and MediaMTX use. Frontend repo: `../The-Raspberry-SPY-frontend` (Angular, on GitHub Pages at `https://filipwisniewski.pl`). The shared backlog is `BACKLOG.md` in the **frontend** repo.
 
 ## Runtime topology (all on the Pi)
 
 ```
 browser ──HTTPS──> Cloudflare ──tunnel──> cloudflared ──> nginx :5000 ──┬─ /flask/*     -> Flask + Socket.IO :8080  (prefix stripped)
-                                                                         ├─ /socket.io   -> Flask-SocketIO :8080 (websocket upgrade)
+                                                                         ├─ /socket.io   -> Socket.IO (same process) :8080 (websocket upgrade)
                                                                          └─ /cam1/*      -> MediaMTX HLS :8888
 ```
 
@@ -24,27 +24,28 @@ The backend runs on a Raspberry (real hardware) **or on any machine with simulat
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
 python scripts/dev_setup.py        # creates .dev-data/: RS256 keys, users.json (demo/demo), alarms.json, greetings.json
-python main.py --fake              # Flask+SocketIO on :8080 (PORT env to change); CORS also allows http://localhost:4200
+python main.py --fake              # FastAPI+Socket.IO on :8080 (PORT env to change); /docs is the Swagger UI; CORS also allows http://localhost:4200
 python -m pytest                   # tests run against the simulated hardware (add --cov=app for coverage)
 ruff check . && ruff format .
 
 # Raspberry Pi
 pip install -r requirements-raspberry.txt
-python main.py                     # DO NOT enable debug=True (breaks GPIO, see comment in server.py)
+python main.py                     # DO NOT enable reload (starts the hardware twice, breaks GPIO). Rollback: python main_flask.py
 ```
 
 - The Raspberry-only libraries (`gpiozero`, `RPLCD`, `rpi_hardware_pwm`, `bleak`, ...) are listed only in `requirements-raspberry.txt` and imported only by `app/hardware/raspberry.py`. Never import them elsewhere – that would break fake mode and CI.
 - Data directory (`DATA_DIR` env): `resources/` on the Pi, `.dev-data/` (gitignored) in fake mode, so local runs never touch tracked files.
 - The frontend can be pointed at a fake-mode backend with its `mock` Angular configuration (`localhost:8080`).
 - CI (`.github/workflows/ci.yml`): ruff + pytest with a coverage report on Ubuntu with the core requirements only. Dependabot proposes weekly dependency updates (pip, Actions).
-- Deploy = `git pull` on the Pi (the checkout must contain `resources/users.json` and the keys, or set `DATA_DIR`), `pip install -r requirements-raspberry.txt` when dependencies changed, then restart Flask (and nginx/MediaMTX if their configs changed; copy `configs/default` to `/etc/nginx/sites-available/default`, `configs/mediamtx.yml` to `/mediamtx/mediamtx.yml`).
+- Deploy = `git pull` on the Pi (the checkout must contain `resources/users.json` and the keys, or set `DATA_DIR`), `pip install -r requirements-raspberry.txt` when dependencies changed, then restart the backend (and nginx/MediaMTX if their configs changed; copy `configs/default` to `/etc/nginx/sites-available/default`, `configs/mediamtx.yml` to `/mediamtx/mediamtx.yml`).
 
-## FastAPI version (migration in progress)
+## FastAPI (default) and the Flask fallback
 
-A second implementation of the same API lives next to the Flask one in this repo; **Flask is still the default and the only one deployed**. Both must stay contract-identical (the frontend and its mock server depend on it) until the cutover.
+`python main.py` runs the FastAPI implementation; the Flask one (`main_flask.py`, `app/server.py`, `app/controller/`, `app/rate_limit.py`) stays in the repo only as a rollback while the new one proves itself on the Pi. Both must stay contract-identical (the frontend and its mock server depend on it) until the Flask code is deleted.
 
 ```bash
-python main_fastapi.py --fake            # uvicorn on :8080 (PORT env), simulated hardware; Swagger UI on /docs in fake mode (API_DOCS=1 elsewhere)
+python main.py --fake                    # uvicorn on :8080 (PORT env), simulated hardware; Swagger UI on /docs in fake mode (API_DOCS=1 elsewhere)
+python main_flask.py --fake              # the Flask fallback
 uvicorn app.api.main:asgi_app            # same, with HARDWARE=fake set in the environment instead of --fake
 ```
 
@@ -53,14 +54,15 @@ uvicorn app.api.main:asgi_app            # same, with HARDWARE=fake set in the e
 - Request validation lives in `app/validation.py` and is used by **both** implementations. Endpoints read the JSON body themselves instead of Pydantic models on purpose: invalid input must give the same 400 + message as Flask, not FastAPI's 422.
 - CPU-heavy or blocking work (scrypt password check, JSON file writes, scheduler reload, GPIO) goes through `run_in_threadpool` / `asyncio.to_thread`; never block the event loop.
 - Tests: `tests/test_fastapi_api.py` (mirrors `test_api.py` + `test_security.py` with Starlette's `TestClient`) and `tests/test_fastapi_sockets.py` (calls the Socket.IO handlers directly). A real-client check was done with the JavaScript `socket.io-client` (websocket-only, like the Angular app); python-socketio's own client + `websocket-client` is rejected by uvicorn's handshake and is not a good test tool here.
-- Dependencies: `requirements-fastapi.txt` (on top of `requirements.txt` for now). On the Pi: `pip install -r requirements-raspberry.txt -r requirements-fastapi.txt`.
-- **Cutover plan** (see `BACKLOG.md` E5 in the frontend repo): run `main_fastapi.py` on the Pi next to Flask on another port, point nginx's `/flask` and `/socket.io` at it, compare, then switch the service. Afterwards delete `app/server.py`, `app/controller/`, `app/rate_limit.py`, `main.py`, the Flask requirements and the Flask test files, and rename `main_fastapi.py` to `main.py`.
-- nginx/Cloudflare need no change: same paths (`/flask` prefix stripped by nginx, `/socket.io`), same port 8080, websocket upgrade works through uvicorn.
+- Dependencies: `requirements-fastapi.txt` (on top of `requirements.txt` for now); `requirements-raspberry.txt` includes it.
+- **Deployed with the cutover** (see `BACKLOG.md` E5 in the frontend repo): nginx serves the API under `/api` (and still `/flask`), the frontend calls `/api`. Rollback = `python main_flask.py` instead of `python main.py` (nginx needs no change). After a quiet period delete the Flask code, `main_flask.py`, the Flask requirements and the Flask test files.
+- Same port 8080 and `/socket.io` path; websocket upgrade works through uvicorn. The nginx `/api` prefix is new: copy `configs/default` to the Pi and reload nginx (see Deploy).
 
 ## Layout
 
 ```
-main.py                     # starts the climate sensor, Arduino websocket and local LCD interface, 5 s Timer loop emitting 'ble_update' / 'system_stats_update', then run_server()
+main.py                     # uvicorn serving app.api.main:asgi_app (the lifespan starts the climate sensor, Arduino websocket, LCD interface and the 5 s stats broadcast)
+main_flask.py               # fallback: the same startup for the Flask app (5 s Timer loop, run_server())
 app/config.py               # hardware mode, data dir and file paths, port (all from env/argv with defaults)
 app/users.py + scripts/manage_users.py  # users.json: scrypt hashes (werkzeug), constant-time verify with a dummy hash for unknown users, startup migration of plain-text passwords
 app/rate_limit.py           # Flask-Limiter (in-memory), key = CF-Connecting-IP (the real visitor behind Cloudflare/nginx)

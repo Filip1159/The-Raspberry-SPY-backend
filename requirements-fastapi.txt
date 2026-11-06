@@ -1,6 +1,5 @@
-# FastAPI version of the backend (work in progress, started with `python main_fastapi.py`).
-# During the migration it sits on top of the Flask requirements (shared modules such as the alarm scheduler, users and
-# the JSON store still use some of them, e.g. werkzeug's password hashing).
+# The backend (`python main.py`): FastAPI + uvicorn. It sits on top of the old Flask requirements until the Flask fallback
+# (`main_flask.py`) is deleted; shared modules still use some of them, e.g. werkzeug's password hashing.
 -r requirements.txt
 fastapi==0.162.0
 uvicorn[standard]==0.54.0
