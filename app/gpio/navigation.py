@@ -1,12 +1,9 @@
 from datetime import datetime
 from time import sleep
 
-from gpiozero import PWMLED, Button, RotaryEncoder
-from RPLCD.i2c import CharLCD
-
 from app.alarm_manager import AlarmManager
-from app.bluetooth_manager import BluetoothManager
 from app.gpio.servos_controller import ServosController
+from app.hardware.interfaces import ClimateSensor, Lcd, Light, PushButton, RotaryEncoder
 from app.melody_player import MELODIES, MelodyPlayer
 from app.system_stats import get_cpu_percent, get_cpu_temperature, get_ram_usage
 
@@ -14,14 +11,14 @@ from app.system_stats import get_cpu_percent, get_cpu_temperature, get_ram_usage
 class Navigation:
     def __init__(
         self,
-        lcd: CharLCD,
+        lcd: Lcd,
         encoder: RotaryEncoder,
-        encoder_button: Button,
+        encoder_button: PushButton,
         servos_controller: ServosController,
-        camera_light: PWMLED,
+        camera_light: Light,
         alarm_manager: AlarmManager,
         melody_player: MelodyPlayer,
-        ble_manager: BluetoothManager,
+        ble_manager: ClimateSensor,
     ):
         self.__lcd = lcd
         self.__encoder = encoder

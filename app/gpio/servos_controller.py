@@ -1,6 +1,7 @@
 from enum import Enum, auto
 
-from rpi_hardware_pwm import HardwarePWM
+from app.hardware import get_hardware
+from app.hardware.interfaces import PwmChannel
 
 
 class Direction(Enum):
@@ -27,11 +28,11 @@ MAX_DEVIATION = 30
 
 
 class ServosController:
-    def __init__(self, v_channel, h_channel):
-        self.vertical_servo = HardwarePWM(pwm_channel=v_channel, hz=50, chip=0)
+    def __init__(self, vertical_servo: PwmChannel, horizontal_servo: PwmChannel):
+        self.vertical_servo = vertical_servo
         self.vertical_servo_angle = 0
         self.vertical_servo.start(to_pwm(V_CENTER))
-        self.horizontal_servo = HardwarePWM(pwm_channel=h_channel, hz=50, chip=0)
+        self.horizontal_servo = horizontal_servo
         self.horizontal_servo_angle = 0
         self.horizontal_servo.start(to_pwm(H_CENTER))
 
@@ -89,4 +90,5 @@ class ServosController:
             self.horizontal_servo.change_duty_cycle(to_pwm(H_CENTER + self.horizontal_servo_angle))
 
 
-servos_controller = ServosController(0, 1)
+_hardware = get_hardware()
+servos_controller = ServosController(_hardware.vertical_servo, _hardware.horizontal_servo)

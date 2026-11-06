@@ -43,6 +43,19 @@ A custom-made 3D printed frame with a tall camera stand. See it in [Makerworld](
 
 :earth_africa: [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) to expose the service publicly
 
+#### Running without a Raspberry :computer:
+
+The hardware (servos, LCD, buzzer, BLE sensor, ...) is simulated, so the backend runs on any machine:
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+python scripts/dev_setup.py   # keys, demo/demo user, alarms
+python main.py --fake
+```
+
+On the Raspberry use `pip install -r requirements-raspberry.txt` and `python main.py`.
+
 ### Gallery 
 <img src="img/img_all.jpg"/>
 <img src="img/img_camera.jpg"/>

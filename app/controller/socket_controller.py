@@ -7,8 +7,10 @@ from flask_socketio import ConnectionRefusedError, SocketIO, disconnect, send
 from jwt import PyJWTError
 
 from app.allowed_origins import ALLOWED_ORIGINS
-from app.gpio.gpio import camera_light
 from app.gpio.servos_controller import servos_controller
+from app.hardware import get_hardware
+
+camera_light = get_hardware().camera_light
 
 socketio = SocketIO(cors_allowed_origins=ALLOWED_ORIGINS)
 

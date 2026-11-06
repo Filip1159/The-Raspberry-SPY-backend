@@ -3,7 +3,8 @@ import json
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 
-from app.alarm_manager import ALARMS_FILE, alarm_manager
+from app.alarm_manager import alarm_manager
+from app.config import ALARMS_FILE
 from app.melody_player import MELODIES
 
 alarms = Blueprint('alarms', __name__, url_prefix='/alarms')

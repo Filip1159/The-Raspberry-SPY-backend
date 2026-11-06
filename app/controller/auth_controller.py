@@ -5,10 +5,8 @@ import jwt
 from flask import Blueprint, jsonify, request
 from jwcrypto import jwk
 
+from app.config import USERS_FILE
 from app.secret_provider import get_keys
-
-USERS_JSON_PATH = '/home/fwisn/Documents/camera-app/resources/users.json'
-
 
 auth = Blueprint('auth', __name__)
 
@@ -30,7 +28,7 @@ def login():
     username = data.get('username')
     password = data.get('password')
 
-    with open(USERS_JSON_PATH) as f:
+    with open(USERS_FILE) as f:
         users = json.load(f)
         matching_users = list(filter(lambda u: u['username'] == username and u['password'] == password, users))
 

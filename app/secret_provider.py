@@ -1,11 +1,8 @@
-from os import path
-
-KEY_PRIVATE_PATH = '/home/fwisn/Documents/camera-app/resources/private_key.pem'
-KEY_PUBLIC_PATH = '/home/fwisn/Documents/camera-app/resources/public_key.pem'
+from app.config import KEY_PRIVATE_PATH, KEY_PUBLIC_PATH
 
 
 def get_keys():
-    if not (path.exists(KEY_PRIVATE_PATH) and path.exists(KEY_PUBLIC_PATH)):
+    if not (KEY_PRIVATE_PATH.exists() and KEY_PUBLIC_PATH.exists()):
         raise FileNotFoundError('Cannot find private_key.pem or public_key.pem file')
 
     with open(KEY_PRIVATE_PATH, 'rb') as f:

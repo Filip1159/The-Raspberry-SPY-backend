@@ -3,9 +3,8 @@ from datetime import datetime, timedelta
 from os import path
 from threading import Event, Lock, Thread
 
+from app.config import ALARMS_FILE
 from app.melody_player import melody_player
-
-ALARMS_FILE = '/home/fwisn/Documents/camera-app/resources/alarms.json'
 
 DAY_TO_INT = {
     'monday': 0,

@@ -3,9 +3,9 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
-greetings = Blueprint('greetings', __name__, url_prefix='/greetings')
+from app.config import GREETINGS_FILE
 
-GREETINGS_FILE = './resources/greetings.json'
+greetings = Blueprint('greetings', __name__, url_prefix='/greetings')
 
 
 @greetings.route('', methods=['POST'])

@@ -49,6 +49,10 @@ Check: `curl -i https://api.filipwisniewski.pl/flask/.well-known/jwks.json`
 
 Allowed browser origins are set in `app/allowed_origins.py` (Flask, Socket.IO) and `hlsAllowOrigin` in `mediamtx.yml`. For local development set `EXTRA_ALLOWED_ORIGINS=http://localhost:4200`.
 
+# Python dependencies
+
+On the Raspberry install `requirements-raspberry.txt` (core + hardware libraries). `requirements.txt` alone is enough to run the backend with simulated hardware (`python main.py --fake`) on any machine, see `AGENTS.md`.
+
 # Hardware PWM
 
 Required for servos to work. Hardware PWM provides smooth movement, in contrast to the software PWM which causes much jitter.

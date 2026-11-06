@@ -1,32 +1,26 @@
+# Core dependencies: enough to run the backend with simulated hardware (HARDWARE=fake) on any OS.
+# On a Raspberry install requirements-raspberry.txt instead.
 bidict==0.23.1
-bleak==2.1.1
 blinker==1.8.2
 cffi==2.0.0
 click==8.1.7
-colorzero==2.0
 cryptography==46.0.3
-dbus-fast==3.1.2
 Flask==3.0.3
 Flask-Cors==5.0.0
 Flask-JWT-Extended==4.7.1
 Flask-SocketIO==5.4.1
-gpiozero==2.0.1
 h11==0.14.0
 itsdangerous==2.2.0
 Jinja2==3.1.4
 jwcrypto==1.5.6
-lgpio==0.2.2.0
 MarkupSafe==3.0.1
 psutil==7.2.1
 pycparser==2.23
 PyJWT==2.10.1
 python-engineio==4.9.1
 python-socketio==5.11.4
-rpi-lgpio==0.6
-rpi_hardware_pwm==0.3.0
-RPLCD==1.4.0
 simple-websocket==1.1.0
-smbus2==0.6.0
 typing_extensions==4.15.0
+websockets>=13
 Werkzeug==3.0.4
 wsproto==1.2.0

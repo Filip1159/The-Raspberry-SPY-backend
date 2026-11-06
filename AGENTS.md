@@ -17,21 +17,37 @@ browser ──HTTPS──> Cloudflare ──tunnel──> cloudflared ──> ng
 
 ## Run / develop
 
+The backend runs on a Raspberry (real hardware) **or on any machine with simulated hardware**. The mode comes from `app/config.py`: `--fake` argument, else `HARDWARE=raspberry|fake`, else auto-detection from `/proc/device-tree/model`.
+
 ```bash
-source bin/activate            # the venv is checked into the repo directory (bin/, lib64, pyvenv.cfg)
-pip install -r requirements.txt
-python main.py                 # Flask+SocketIO on 0.0.0.0:8080 – DO NOT enable debug=True (breaks GPIO, see comment in server.py)
-bin/ruff check . && bin/ruff format .
+# any machine (macOS / Linux / Windows), simulated hardware
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+python scripts/dev_setup.py        # creates .dev-data/: RS256 keys, users.json (demo/demo), alarms.json, greetings.json
+python main.py --fake              # Flask+SocketIO on :8080 (PORT env to change); CORS also allows http://localhost:4200
+python -m pytest                   # tests run against the simulated hardware
+ruff check . && ruff format .
+
+# Raspberry Pi
+pip install -r requirements-raspberry.txt
+python main.py                     # DO NOT enable debug=True (breaks GPIO, see comment in server.py)
 ```
 
-- **Only runs on the Pi.** `app/gpio/*` creates `gpiozero`/`RPLCD`/hardware-PWM objects at import time, so importing most modules on a laptop fails. Don't try to run the server locally; verify with `ruff` and by reading code, and ask the user to test on the Pi.
-- There are no automated tests.
-- Deploy = `git pull` on the Pi (checkout at `/home/fwisn/Documents/camera-app`), then restart Flask (and nginx/MediaMTX if their configs changed; copy `configs/default` to `/etc/nginx/sites-available/default`, `configs/mediamtx.yml` to `/mediamtx/mediamtx.yml`).
+- The Raspberry-only libraries (`gpiozero`, `RPLCD`, `rpi_hardware_pwm`, `bleak`, ...) are listed only in `requirements-raspberry.txt` and imported only by `app/hardware/raspberry.py`. Never import them elsewhere – that would break fake mode and CI.
+- Data directory (`DATA_DIR` env): `resources/` on the Pi, `.dev-data/` (gitignored) in fake mode, so local runs never touch tracked files.
+- The frontend can be pointed at a fake-mode backend with its `mock` Angular configuration (`localhost:8080`).
+- CI (`.github/workflows/ci.yml`): ruff + pytest on Ubuntu with the core requirements only.
+- Deploy = `git pull` on the Pi (the checkout must contain `resources/users.json` and the keys, or set `DATA_DIR`), `pip install -r requirements-raspberry.txt` when dependencies changed, then restart Flask (and nginx/MediaMTX if their configs changed; copy `configs/default` to `/etc/nginx/sites-available/default`, `configs/mediamtx.yml` to `/mediamtx/mediamtx.yml`).
 
 ## Layout
 
 ```
-main.py                     # starts BLE + Arduino websocket threads, 5 s Timer loop emitting 'ble_update' / 'system_stats_update', then run_server()
+main.py                     # starts the climate sensor, Arduino websocket and local LCD interface, 5 s Timer loop emitting 'ble_update' / 'system_stats_update', then run_server()
+app/config.py               # hardware mode, data dir and file paths, port (all from env/argv with defaults)
+app/hardware/               # interfaces.py (Protocols), raspberry.py (real: gpiozero/RPLCD/PWM/BLE), fake.py (simulated), __init__.py = get_hardware() composition root
+app/local_interface.py      # LCD + rotary encoder UI loop (backlight/ACT LED auto-off); started from main.py
+app/dev_data.py + scripts/dev_setup.py  # generate keys/users/alarms/greetings for fake mode and tests
+tests/                      # pytest, simulated hardware, temp data dir (tests/conftest.py)
 app/server.py               # Flask app, JWT (RS256, public key), CORS, blueprints, SocketIO
 app/allowed_origins.py      # CORS/Socket.IO origin allow-list (+ EXTRA_ALLOWED_ORIGINS env for dev)
 app/controller/
@@ -41,28 +57,27 @@ app/controller/
   health_controller.py      # GET /health (public liveness probe, used by the frontend's offline detection)
   socket_controller.py      # Socket.IO: JWT required in handshake `auth.token` (else refused as 'unauthorized'); 'message' -> servo direction name or 'LED<0-255>'
 app/alarm_manager.py        # background thread waits for next weekly alarm, plays melody; alarms.json is source of truth
-app/melody_player.py        # buzzer melodies (MELODIES dict) played in a thread
-app/gpio/gpio.py            # PWM camera light (GPIO14), LCD (I2C 0x27), rotary encoder, button; LCD backlight/ACT LED auto-off
+app/melody_player.py        # melodies (MELODIES dict) played in a thread through the Buzzer interface
 app/gpio/navigation.py      # LCD menu state machine (hello/menu/camera/alarms/alarm_details/stats/climate)
-app/gpio/servos_controller.py  # pan/tilt via hardware PWM (needs dtoverlay in /boot/firmware/config.txt, see CONFIGS.MD)
-app/bluetooth_manager.py    # BLE client (HM-10 'BT05') polling temperature/humidity/voltage over bleak
-app/system_stats.py         # CPU %, CPU temperature, RAM %
+app/gpio/servos_controller.py  # pan/tilt logic on top of two PwmChannel objects (real PWM needs a dtoverlay in /boot/firmware/config.txt, see CONFIGS.MD)
+app/system_stats.py         # CPU %, CPU temperature (thermal zone, simulated when missing), RAM %
 resources/                  # alarms.json, greetings.json (tracked); users.json, *.pem are gitignored and live only on the Pi
 configs/                    # nginx, MediaMTX, setup docs
 ```
 
 ## Conventions
 
-- Ruff: line length 140, single quotes, space indent, rules E/F/I/B/UP (`pyproject.toml`). Match the existing style: blueprints per resource, module-level singletons (`alarm_manager`, `melody_player`, `servos_controller`, `ble_manager`), threads with `daemon=True`.
+- Ruff: line length 140, single quotes, space indent, rules E/F/I/B/UP (`pyproject.toml`). Match the existing style: blueprints per resource, module-level singletons (`alarm_manager`, `melody_player`, `servos_controller`) built from `get_hardware()`, threads with `daemon=True`. Hardware access always goes through the interfaces in `app/hardware/interfaces.py`; add a fake implementation whenever you add a real one.
 - Persistence is plain JSON files; there is no database.
-- Secrets/files that must exist on the Pi but are not in git: `resources/users.json` (list of `{username,password}`), `resources/private_key.pem`, `resources/public_key.pem` (RS256 pair; the public key is also published as JWKS).
+- Secrets/files that must exist on the Pi but are not in git (fake mode generates throwaway ones): `resources/users.json` (list of `{username,password}`), `resources/private_key.pem`, `resources/public_key.pem` (RS256 pair; the public key is also published as JWKS).
 - Keep CORS origins in `app/allowed_origins.py` and `hlsAllowOrigin` in `mediamtx.yml` in sync with the frontend domain.
 
 ## Gotchas / known weak spots (see BACKLOG.md)
 
-- Absolute paths are hardcoded (`/home/fwisn/Documents/camera-app/resources/...` in `auth_controller.py`, `alarm_manager.py`, `secret_provider.py`) while `greetings_controller.py` uses a path relative to the working directory.
 - Socket.IO sessions stay connected after their JWT expires (the `message` handler then disconnects them) and still receive the 5 s stats broadcast until the client disconnects.
 - `users.json` stores plaintext passwords; `/login` and `/greetings` have no rate limiting; `GET /greetings` is public and returns everything ever sent.
 - `POST /alarms/play` doesn't validate the melody name; a bad value raises inside the handler.
-- `os.system('... sudo tee ...')` is used to control the ACT LED; Flask must run with passwordless sudo for that to work.
-- The checked-in venv (`bin/`, `lib64`, `pyvenv.cfg`) is Python 3.11 while `pyproject.toml` targets py313.
+- The ACT LED is controlled with `os.system('... sudo tee ...')` in `app/hardware/raspberry.py`; Flask must run with passwordless sudo for that to work.
+- Singletons are still created at import time (through `get_hardware()`); a full dependency-injection container is a possible follow-up (BACKLOG E4).
+- The checked-in venv (`bin/`, `lib64`, `pyvenv.cfg`) is Python 3.11 while `pyproject.toml` targets py313; CI uses 3.11.
+- `GET /alarms` and `GET /greetings` return the raw JSON file with a `text/html` content type (the frontend parses it anyway); tests parse the body manually.
