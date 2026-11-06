@@ -37,7 +37,7 @@ python main.py                     # DO NOT enable reload (starts the hardware t
 - Data directory (`DATA_DIR` env): `resources/` on the Pi, `.dev-data/` (gitignored) in fake mode, so local runs never touch tracked files.
 - The frontend can be pointed at a fake-mode backend with its `mock` Angular configuration (`localhost:8080`).
 - CI (`.github/workflows/ci.yml`): ruff + pytest with a coverage report on Ubuntu with the core requirements only. Dependabot proposes weekly dependency updates (pip, Actions).
-- Deploy = `git pull` on the Pi (the checkout must contain `resources/users.json` and the keys, or set `DATA_DIR`), `pip install -r requirements-raspberry.txt` when dependencies changed, then restart the backend (and nginx/MediaMTX if their configs changed; copy `configs/default` to `/etc/nginx/sites-available/default`, `configs/mediamtx.yml` to `/mediamtx/mediamtx.yml`).
+- Deploy: the backend runs as the `raspberry-spy` systemd service (`configs/raspberry-spy.service`, installed once with `scripts/install_service.sh`). Update with `scripts/deploy.sh` on the Pi (`git pull --ff-only`, `pip install -r requirements-raspberry.txt` when the requirements changed, `systemctl restart`, waits for `/health`; it prints a reminder when `configs/default` changed). The checkout must contain `resources/users.json` and the keys, or set `DATA_DIR`. nginx/MediaMTX configs are copied by hand (`configs/default` to `/etc/nginx/sites-available/default`, `configs/mediamtx.yml` to `/mediamtx/mediamtx.yml`); logs: `journalctl -u raspberry-spy -f`.
 
 ## FastAPI
 

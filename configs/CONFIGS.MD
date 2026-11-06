@@ -32,6 +32,27 @@ Make Nginx run on boot
 sudo systemctl enable nginx
 ```
 
+# Backend service (systemd)
+
+The backend (`python main.py`) runs as the `raspberry-spy` systemd service: it starts on boot, restarts 5 s after a crash and logs to the journal. `cloudflared`, nginx and MediaMTX are services as well (see the sections around this one).
+
+```bash
+# once, from the checkout, as the user that ran the backend until now (it must be in the gpio, i2c and bluetooth groups
+# and have passwordless sudo: the ACT LED is switched with `sudo tee`)
+pkill -f 'main.py'                  # stop a hand-started backend, it holds port 8080 and the GPIO pins
+scripts/install_service.sh          # fills in the user / checkout / python of this machine, enables and starts the unit
+scripts/install_service.sh --print  # just show the unit
+
+# every deployment afterwards
+scripts/deploy.sh                   # git pull --ff-only, pip install if the requirements changed, restart, wait for /health
+
+journalctl -u raspberry-spy -f      # logs
+sudo systemctl status raspberry-spy
+sudo systemctl restart raspberry-spy
+```
+
+The python used is `<checkout>/bin/python` (the virtualenv that lives in the checkout), else `.venv/bin/python`, else `python3`.
+
 # Cloudflare Tunnel
 
 The frontend is hosted on GitHub Pages (`https://filipwisniewski.pl`). The Raspberry only exposes the API, websocket and HLS stream at `https://api.filipwisniewski.pl` through a Cloudflare Tunnel. The domain's DNS must be managed by Cloudflare (nameservers changed at the registrar; the domain itself can stay registered elsewhere).

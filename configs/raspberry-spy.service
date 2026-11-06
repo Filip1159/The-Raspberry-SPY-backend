@@ -1,0 +1,24 @@
+# systemd unit for the backend. Do not copy it by hand: scripts/install_service.sh fills in the placeholders
+# (__USER__, __WORKDIR__, __PYTHON__) and installs it as /etc/systemd/system/raspberry-spy.service.
+[Unit]
+Description=The Raspberry SPY backend (FastAPI + Socket.IO)
+# nginx and cloudflared sit in front of it; the backend itself only needs the network stack
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__WORKDIR__
+ExecStart=__PYTHON__ main.py
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+RestartSec=5
+# uvicorn shuts down on SIGTERM; the hardware threads are daemons, so a stop never hangs for long
+TimeoutStopSec=15
+
+# No NoNewPrivileges / ProtectSystem here on purpose: the ACT LED is switched with `sudo tee` (see app/hardware/raspberry.py)
+# and the process needs the GPIO/I2C/SPI devices. The user must be in the gpio, i2c and (for BLE) bluetooth groups.
+
+[Install]
+WantedBy=multi-user.target

@@ -54,7 +54,7 @@ python scripts/dev_setup.py   # keys, demo/demo user, alarms
 python main.py --fake
 ```
 
-On the Raspberry use `pip install -r requirements-raspberry.txt` and `python main.py`.
+On the Raspberry use `pip install -r requirements-raspberry.txt` and `python main.py`; for production run it as a systemd service (`scripts/install_service.sh`, updates with `scripts/deploy.sh`, see `configs/CONFIGS.MD`).
 
 ### Gallery 
 <img src="img/img_all.jpg"/>
