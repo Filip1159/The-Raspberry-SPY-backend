@@ -1,5 +1,5 @@
 -r requirements.txt
 httpx>=0.28
-pytest>=8
+pytest>=9.2.0
 pytest-cov>=6
 ruff>=0.9
