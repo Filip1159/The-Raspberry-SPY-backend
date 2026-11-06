@@ -6,3 +6,4 @@
 - Do not commit or push unless asked. The Pi pulls from `master`.
 - Changing CORS origins, nginx or MediaMTX config means the user must also apply the config on the Pi – say so explicitly in your summary.
 - Cross-repo work (API contract, CORS, socket events) must keep the frontend (`../The-Raspberry-SPY-frontend`) working, including its mock server (`mock-server/server.js`), which mirrors this API; update both and note it in `BACKLOG.md` if something is left half-done.
+- API changes must be made in **both** the Flask and the FastAPI implementation until the cutover (`app/controller/` + `app/server.py` and `app/api/`); shared validation goes into `app/validation.py`. See the FastAPI section in `AGENTS.md`.

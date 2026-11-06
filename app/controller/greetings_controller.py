@@ -6,10 +6,10 @@ from flask_jwt_extended import jwt_required
 from app.config import GREETINGS_FILE
 from app.json_store import read_json, update_json
 from app.rate_limit import limiter
+from app.validation import MAX_GREETING_LENGTH, validate_greeting  # noqa: F401 (re-exported for the tests)
 
 greetings = Blueprint('greetings', __name__, url_prefix='/greetings')
 
-MAX_GREETING_LENGTH = 500
 MAX_STORED_GREETINGS = 1000  # the oldest ones are dropped, so the public endpoint cannot fill the disk
 
 
@@ -17,14 +17,12 @@ MAX_STORED_GREETINGS = 1000  # the oldest ones are dropped, so the public endpoi
 @limiter.limit('3 per minute;20 per hour')
 def publish_greeting():
     data = request.get_json(silent=True)
-    text = data.get('text') if isinstance(data, dict) else None
 
-    if not isinstance(text, str) or not text.strip():
-        return jsonify({'error': 'Invalid greeting text'}), 400
-    if len(text) > MAX_GREETING_LENGTH:
-        return jsonify({'error': f'Greeting is too long (max {MAX_GREETING_LENGTH} characters)'}), 400
+    error = validate_greeting(data)
+    if error:
+        return jsonify({'error': error}), 400
 
-    entry = {'text': text.strip(), 'timestamp': datetime.now().isoformat()}
+    entry = {'text': data['text'].strip(), 'timestamp': datetime.now().isoformat()}
     update_json(GREETINGS_FILE, lambda current: (current + [entry])[-MAX_STORED_GREETINGS:])
 
     return '', 201

@@ -35,3 +35,6 @@ PORT = int(environ.get('PORT', 8080))
 
 # Rate limits on /login and /greetings; the switch exists for load tests and debugging, keep it on in production
 RATE_LIMITS_ENABLED = environ.get('RATE_LIMITS_ENABLED', '1') != '0'
+
+# FastAPI only: the interactive API docs (/docs) are public through the tunnel, so they are off on the Raspberry by default
+API_DOCS_ENABLED = environ.get('API_DOCS', '1' if HARDWARE_MODE == 'fake' else '0') == '1'

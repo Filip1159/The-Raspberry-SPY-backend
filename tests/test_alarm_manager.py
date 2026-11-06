@@ -135,3 +135,29 @@ def test_save_day_replaces_only_that_day_and_persists_it(manager, tmp_path):
     saved = json.loads(schedule_file.read_text())
     assert saved == [alarm('monday', 6, 0), alarm('tuesday', 8, 45, melody='Panic')]
     assert manager.schedule == saved
+
+
+def test_reloading_while_an_alarm_is_ringing_does_not_deadlock(manager, tmp_path, monkeypatch):
+    """The waiting thread needs the schedule lock right after play(); reload used to hold it while joining that thread"""
+    import threading
+
+    schedule_file = tmp_path / 'alarms.json'
+    schedule_file.write_text(json.dumps([alarm('friday', 10, 0)]))
+    # 0.3 s before the alarm: the thread starts ringing almost immediately
+    freeze(monkeypatch, datetime(2026, 11, 6, 9, 59, 59, 700000))
+    ringing, let_play_return = threading.Event(), threading.Event()
+
+    def slow_play(_melody):
+        ringing.set()
+        let_play_return.wait(5)
+
+    monkeypatch.setattr(manager.player, 'play', slow_play)
+    manager.reload()
+    assert ringing.wait(5)
+
+    reloader = threading.Thread(target=manager.reload, daemon=True)
+    reloader.start()
+    let_play_return.set()  # play() returns; the old thread now wants the lock the reload used to hold
+
+    reloader.join(timeout=5)
+    assert not reloader.is_alive(), 'reload() is stuck'

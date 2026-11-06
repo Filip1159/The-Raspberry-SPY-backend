@@ -39,6 +39,24 @@ python main.py                     # DO NOT enable debug=True (breaks GPIO, see 
 - CI (`.github/workflows/ci.yml`): ruff + pytest with a coverage report on Ubuntu with the core requirements only. Dependabot proposes weekly dependency updates (pip, Actions).
 - Deploy = `git pull` on the Pi (the checkout must contain `resources/users.json` and the keys, or set `DATA_DIR`), `pip install -r requirements-raspberry.txt` when dependencies changed, then restart Flask (and nginx/MediaMTX if their configs changed; copy `configs/default` to `/etc/nginx/sites-available/default`, `configs/mediamtx.yml` to `/mediamtx/mediamtx.yml`).
 
+## FastAPI version (migration in progress)
+
+A second implementation of the same API lives next to the Flask one in this repo; **Flask is still the default and the only one deployed**. Both must stay contract-identical (the frontend and its mock server depend on it) until the cutover.
+
+```bash
+python main_fastapi.py --fake            # uvicorn on :8080 (PORT env), simulated hardware; Swagger UI on /docs in fake mode (API_DOCS=1 elsewhere)
+uvicorn app.api.main:asgi_app            # same, with HARDWARE=fake set in the environment instead of --fake
+```
+
+- `app/api/main.py`: `fastapi_app` (REST) and `asgi_app` = `socketio.ASGIApp(sio, other_asgi_app=fastapi_app)`, the thing to serve. The `lifespan` starts what `main.py` starts for Flask (climate sensor, Arduino websocket, LCD interface) plus the 5 s stats broadcast task. Hardware is **not** started on import, so tests can import the app.
+- `app/api/routers/` (health, auth, alarms, greetings), `app/api/security.py` (RS256 verification with the public key, `current_user` dependency, 401 bodies `{'msg': ...}`), `app/api/rate_limit.py` (the `limits` library, same limits and `CF-Connecting-IP` key; the login only counts failed attempts), `app/api/sockets.py` (python-socketio `AsyncServer`: handshake JWT, expiry per session, `message` -> servos/LED run in a thread, broadcast loop), `app/api/errors.py` (`ApiError` keeps the Flask error bodies: `{'error': ...}` 400/429, `{'msg': ...}` 401; 413 for bodies > 64 kB).
+- Request validation lives in `app/validation.py` and is used by **both** implementations. Endpoints read the JSON body themselves instead of Pydantic models on purpose: invalid input must give the same 400 + message as Flask, not FastAPI's 422.
+- CPU-heavy or blocking work (scrypt password check, JSON file writes, scheduler reload, GPIO) goes through `run_in_threadpool` / `asyncio.to_thread`; never block the event loop.
+- Tests: `tests/test_fastapi_api.py` (mirrors `test_api.py` + `test_security.py` with Starlette's `TestClient`) and `tests/test_fastapi_sockets.py` (calls the Socket.IO handlers directly). A real-client check was done with the JavaScript `socket.io-client` (websocket-only, like the Angular app); python-socketio's own client + `websocket-client` is rejected by uvicorn's handshake and is not a good test tool here.
+- Dependencies: `requirements-fastapi.txt` (on top of `requirements.txt` for now). On the Pi: `pip install -r requirements-raspberry.txt -r requirements-fastapi.txt`.
+- **Cutover plan** (see `BACKLOG.md` E5 in the frontend repo): run `main_fastapi.py` on the Pi next to Flask on another port, point nginx's `/flask` and `/socket.io` at it, compare, then switch the service. Afterwards delete `app/server.py`, `app/controller/`, `app/rate_limit.py`, `main.py`, the Flask requirements and the Flask test files, and rename `main_fastapi.py` to `main.py`.
+- nginx/Cloudflare need no change: same paths (`/flask` prefix stripped by nginx, `/socket.io`), same port 8080, websocket upgrade works through uvicorn.
+
 ## Layout
 
 ```
@@ -59,7 +77,7 @@ app/controller/
   greetings_controller.py   # POST /greetings (public, max 500 chars, 3/min and 20/h per visitor, last 1000 kept), GET /greetings (JWT required)
   health_controller.py      # GET /health (public liveness probe, used by the frontend's offline detection)
   socket_controller.py      # Socket.IO: JWT required in handshake `auth.token` (else refused as 'unauthorized'); 'message' -> servo direction name or 'LED<0-255>'
-app/alarm_manager.py        # background thread waits for the next ENABLED weekly alarm (none enabled = no thread), plays the melody; alarms.json is source of truth
+app/alarm_manager.py        # background thread waits for the next ENABLED weekly alarm (none enabled = no thread), plays the melody; alarms.json is source of truth. `reload()` serializes on `__reload_lock` and joins the old thread without holding `__lock` (the thread needs it after every alarm: joining under it deadlocked)
 app/melody_player.py        # melodies (MELODIES dict) played in a thread through the Buzzer interface
 app/gpio/navigation.py      # LCD menu state machine (hello/menu/camera/alarms/alarm_details/stats/climate)
 app/gpio/servos_controller.py  # pan/tilt logic on top of two PwmChannel objects (real PWM needs a dtoverlay in /boot/firmware/config.txt, see CONFIGS.MD)
