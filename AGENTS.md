@@ -13,7 +13,7 @@ browser ──HTTPS──> Cloudflare ──tunnel──> cloudflared ──> ng
 - Public hostname `api.filipwisniewski.pl` (Cloudflare Tunnel configured in the Cloudflare dashboard, no config file on the Pi). Setup notes: `configs/CONFIGS.MD`.
 - nginx (`configs/default`) only proxies; it does not serve the frontend or add CORS headers.
 - MediaMTX (`configs/mediamtx.yml`, v1.15.3) captures the camera with `rpicam-vid | ffmpeg` into path `cam1`, serves HLS, and authenticates readers with a JWT (`?jwt=` query) verified against the backend's `/.well-known/jwks.json` (`mediamtx_permissions` claim).
-- Port `8765` runs a plain `websockets` server for an Arduino Uno R4 (`app/websocket_manager.py`, draft – only logs messages).
+- Port `8765` can run a plain `websockets` server for an Arduino Uno R4 (`app/websocket_manager.py`, experimental, **off** unless `ARDUINO_WEBSOCKET=1`, no authentication; it logs messages and `send()` works).
 
 ## Run / develop
 
@@ -48,7 +48,7 @@ uvicorn app.api.main:asgi_app            # same, with HARDWARE=fake set in the e
 ```
 
 - `app/api/main.py`: `fastapi_app` (REST) and `asgi_app` = `socketio.ASGIApp(sio, other_asgi_app=fastapi_app)`, the thing to serve. The `lifespan` starts the climate sensor, the Arduino websocket and the LCD interface, plus the 5 s stats broadcast task. Hardware is **not** started on import, so tests can import the app.
-- `app/api/routers/` (health, auth, alarms, greetings), `app/api/security.py` (RS256 verification with the public key, `current_user` dependency, 401 bodies `{'msg': ...}`), `app/api/rate_limit.py` (the `limits` library, same limits and `CF-Connecting-IP` key; the login only counts failed attempts), `app/api/sockets.py` (python-socketio `AsyncServer`: handshake JWT, expiry per session, `message` -> servos/LED run in a thread, broadcast loop), `app/api/errors.py` (`ApiError` produces the bodies the frontend expects: `{'error': ...}` 400/429, `{'msg': ...}` 401; 413 for bodies > 64 kB).
+- `app/api/routers/` (health, auth incl. `/refresh` and `/logout`, alarms, greetings, stats), `app/refresh_tokens.py` (opaque random tokens, only SHA-256 hashes in `refresh_tokens.json`, 7 days, rotated on use with a 30 s grace period, set as httpOnly SameSite=Strict cookie; `COOKIE_SECURE`/`REFRESH_TOKEN_DAYS` env, Secure is off in fake mode; CORS allows credentials), `app/api/security.py` (RS256 verification with the public key, `current_user` dependency, 401 bodies `{'msg': ...}`), `app/api/rate_limit.py` (the `limits` library, same limits and `CF-Connecting-IP` key; the login only counts failed attempts), `app/api/sockets.py` (python-socketio `AsyncServer`: handshake JWT, expiry per session, `message` -> servos/LED run in a thread, broadcast loop), `app/api/errors.py` (`ApiError` produces the bodies the frontend expects: `{'error': ...}` 400/429, `{'msg': ...}` 401; 413 for bodies > 64 kB).
 - Request validation lives in `app/validation.py`. Endpoints read the JSON body themselves instead of Pydantic models on purpose: invalid input must give a 400 + `{'error': ...}` (what the frontend and its mock server expect), not FastAPI's 422. Switching to Pydantic models would be a contract change for both repos.
 - CPU-heavy or blocking work (scrypt password check, JSON file writes, scheduler reload, GPIO) goes through `run_in_threadpool` / `asyncio.to_thread`; never block the event loop.
 - Tests: `tests/test_api.py` (Starlette's `TestClient`: auth, validation, rate limits, CORS, body size), `tests/test_sockets.py` (calls the Socket.IO handlers directly), `tests/test_security.py` (password hashing, JSON store). A real-client check was done with the JavaScript `socket.io-client` (websocket-only, like the Angular app); python-socketio's own client + `websocket-client` is rejected by uvicorn's handshake and is not a good test tool here.
@@ -65,16 +65,20 @@ app/json_store.py           # locked, atomic read/write/update of the JSON data 
 app/hardware/               # interfaces.py (Protocols), raspberry.py (real: gpiozero/RPLCD/PWM/BLE), fake.py (simulated), __init__.py = get_hardware() composition root
 app/local_interface.py      # LCD + rotary encoder UI loop (backlight/ACT LED auto-off); started from main.py
 app/dev_data.py + scripts/dev_setup.py  # generate keys/users/alarms/greetings for fake mode and tests
-tests/                      # pytest, simulated hardware, temp data dir (tests/conftest.py); alarm scheduler tests freeze `datetime` in app.alarm_manager
+tests/                      # pytest, simulated hardware, temp data dir (tests/conftest.py); alarm scheduler tests freeze `datetime` in app.alarm_manager and build their own `AlarmManager(player, file)`; `tests/test_raspberry_hardware.py` runs `app/hardware/raspberry.py` against mocked gpiozero/bleak/RPLCD
 app/allowed_origins.py      # CORS/Socket.IO origin allow-list (+ EXTRA_ALLOWED_ORIGINS env for dev)
 app/api/                    # the FastAPI app (see above): main.py (app, lifespan, CORS, body limit), security.py, rate_limit.py (CF-Connecting-IP key), errors.py, sockets.py, routers/
   routers/auth.py           # POST /login (users.json, hashed passwords, only failed attempts count: 5/min and 20/h per visitor), GET /.well-known/jwks.json; token: 30 min, claims sub + mediamtx_permissions
   routers/alarms.py         # GET/POST /alarms (POST reloads the scheduler), POST /alarms/play (melody validated); JWT required
+  routers/stats.py          # GET /stats/history (JWT required): the last 120 broadcast samples (10 min, in memory, `app/stats_history.py`), oldest first
   routers/greetings.py      # POST /greetings (public, max 500 chars, 3/min and 20/h per visitor, last 1000 kept), GET /greetings (JWT required)
   routers/health.py         # GET /health (public liveness probe, used by the frontend's offline detection)
   sockets.py                # Socket.IO: JWT required in handshake `auth.token` (else refused as 'unauthorized'); 'message' -> servo direction name or 'LED<0-255>'
 app/validation.py           # request validation shared by the routers
 app/alarm_manager.py        # background thread waits for the next ENABLED weekly alarm (none enabled = no thread), plays the melody; alarms.json is source of truth. `reload()` serializes on `__reload_lock` and joins the old thread without holding `__lock` (the thread needs it after every alarm: joining under it deadlocked)
+app/services.py            # get_services(): MelodyPlayer + AlarmManager + ServosController, created on first use
+app/climate.py             # parse_reading() (never raises, validates ranges), ClimateReadings (shared by the BLE and the fake sensor), `stale` after CLIMATE_STALE_SECONDS (default 300); `ble_update` carries `stale`
+app/hardware/sysfs_led.py  # ACT LED through sysfs without sudo (needs configs/99-act-led.rules); permission errors are logged once, the LED is left alone
 app/melody_player.py        # melodies (MELODIES dict) played in a thread through the Buzzer interface
 app/gpio/navigation.py      # LCD menu state machine (hello/menu/camera/alarms/alarm_details/stats/climate)
 app/gpio/servos_controller.py  # pan/tilt logic on top of two PwmChannel objects (real PWM needs a dtoverlay in /boot/firmware/config.txt, see CONFIGS.MD)
@@ -85,7 +89,7 @@ configs/                    # nginx, MediaMTX, setup docs
 
 ## Conventions
 
-- Ruff: line length 140, single quotes, space indent, rules E/F/I/B/UP (`pyproject.toml`). Match the existing style: blueprints per resource, module-level singletons (`alarm_manager`, `melody_player`, `servos_controller`) built from `get_hardware()`, threads with `daemon=True`. Hardware access always goes through the interfaces in `app/hardware/interfaces.py`; add a fake implementation whenever you add a real one.
+- Ruff: line length 140, single quotes, space indent, rules E/F/I/B/UP (`pyproject.toml`). Match the existing style: blueprints per resource, the long-lived objects (`MelodyPlayer`, `AlarmManager`, `ServosController`) are created lazily by `get_services()` in `app/services.py` (the lifespan calls it at startup); classes take their dependencies as constructor arguments, so tests build isolated instances, threads with `daemon=True`. Hardware access always goes through the interfaces in `app/hardware/interfaces.py`; add a fake implementation whenever you add a real one.
 - Persistence is plain JSON files; there is no database.
 - Secrets/files that must exist on the Pi but are not in git (fake mode generates throwaway ones): `resources/users.json` (list of `{username,password_hash}`, managed with `scripts/manage_users.py`; a legacy file with plain `password` fields is hashed automatically on startup), `resources/private_key.pem`, `resources/public_key.pem` (RS256 pair; the public key is also published as JWKS).
 - Keep CORS origins in `app/allowed_origins.py` and `hlsAllowOrigin` in `mediamtx.yml` in sync with the frontend domain.

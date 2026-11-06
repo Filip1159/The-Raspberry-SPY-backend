@@ -1,0 +1,3 @@
+# Lets the `gpio` group switch the Raspberry's on-board ACT LED (the app dims it at night), so no `sudo tee` is needed.
+# Install: sudo cp configs/99-act-led.rules /etc/udev/rules.d/ && sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=leds
+SUBSYSTEM=="leds", KERNEL=="ACT", ACTION=="add|change", RUN+="/bin/sh -c 'chgrp gpio /sys%p/brightness /sys%p/trigger; chmod g+w /sys%p/brightness /sys%p/trigger'"

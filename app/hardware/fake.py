@@ -5,6 +5,7 @@ from datetime import datetime
 from threading import Event, Thread
 from time import sleep
 
+from app.climate import ClimateReadings
 from app.hardware import Hardware
 
 logger = logging.getLogger('hardware.fake')
@@ -94,14 +95,11 @@ class FakeStatusLed:
         logger.debug('ACT LED: released')
 
 
-class FakeClimateSensor:
+class FakeClimateSensor(ClimateReadings):
     """Produces plausible readings (small random walk) every few seconds so the UI has moving data"""
 
     def __init__(self, interval_seconds: float = 5.0):
-        self.humidity: float | None = None
-        self.temperature: float | None = None
-        self.voltage: float | None = None
-        self.last_updated: datetime | None = None
+        super().__init__()
         self._interval = interval_seconds
         self._stop = Event()
 

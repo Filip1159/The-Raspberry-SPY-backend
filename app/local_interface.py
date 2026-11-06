@@ -1,17 +1,16 @@
 from threading import Thread
 from time import sleep
 
-from app.alarm_manager import alarm_manager
 from app.gpio.navigation import Navigation
-from app.gpio.servos_controller import servos_controller
 from app.hardware import get_hardware
-from app.melody_player import melody_player
+from app.services import get_services
 
 # The local interface: 20x4 LCD + rotary encoder. It also dims the LCD backlight and the on-board LED after a while.
 
 
 def start_local_interface():
     hardware = get_hardware()
+    services = get_services()
     lcd = hardware.lcd
     status_led = hardware.status_led
 
@@ -19,10 +18,10 @@ def start_local_interface():
         lcd,
         hardware.encoder,
         hardware.button,
-        servos_controller,
+        services.servos_controller,
         hardware.camera_light,
-        alarm_manager,
-        melody_player,
+        services.alarm_manager,
+        services.melody_player,
         hardware.climate_sensor,
     )
 

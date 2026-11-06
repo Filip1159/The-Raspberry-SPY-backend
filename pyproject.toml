@@ -27,5 +27,3 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 source = ["app"]
-# Needs the real Raspberry hardware, it cannot run anywhere else
-omit = ["app/hardware/raspberry.py"]

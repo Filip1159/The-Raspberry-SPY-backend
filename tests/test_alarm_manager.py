@@ -5,6 +5,8 @@ import pytest
 
 from app import alarm_manager as alarm_module
 from app.alarm_manager import AlarmManager
+from app.hardware.fake import FakeBuzzer
+from app.melody_player import MelodyPlayer
 
 
 def alarm(day: str, hour: int, minute: int, enabled: bool = True, melody: str = 'Nokia') -> dict:
@@ -25,8 +27,7 @@ def manager(tmp_path, monkeypatch):
     """An AlarmManager working on its own (empty) schedule file"""
     schedule_file = tmp_path / 'alarms.json'
     schedule_file.write_text('[]')
-    monkeypatch.setattr(alarm_module, 'ALARMS_FILE', schedule_file)
-    instance = AlarmManager()
+    instance = AlarmManager(MelodyPlayer(FakeBuzzer()), schedule_file)
     yield instance
     instance._AlarmManager__stop_current_thread()
 

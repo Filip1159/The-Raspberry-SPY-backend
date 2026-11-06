@@ -6,8 +6,8 @@ import pytest
 from socketio.exceptions import ConnectionRefusedError
 
 from app.api import sockets
-from app.gpio.servos_controller import servos_controller
 from app.hardware import get_hardware
+from app.services import get_services
 
 
 def make_token(expires_in: int) -> str:
@@ -58,6 +58,7 @@ def test_signed_in_client_controls_the_camera(sio):
     run(sockets.handle_message('sid1', 'LED255'))
     assert get_hardware().camera_light.value == 1.0
 
+    servos_controller = get_services().servos_controller
     before = servos_controller.vertical_servo_angle
     run(sockets.handle_message('sid1', 'DOWN'))
     assert servos_controller.vertical_servo_angle == before + 1 or servos_controller.vertical_servo_angle == 30
@@ -112,4 +113,22 @@ def test_stats_are_broadcast_to_everyone(sio, monkeypatch):
     events = {event for event, _ in emitted}
     assert events == {'ble_update', 'system_stats_update'}
     assert set(dict(emitted)['system_stats_update']) == {'cpuUsage', 'cpuTemperature', 'ramUsage'}
-    assert set(dict(emitted)['ble_update']) == {'humidity', 'temperature', 'voltage', 'lastUpdated'}
+    assert set(dict(emitted)['ble_update']) == {'humidity', 'temperature', 'voltage', 'lastUpdated', 'stale'}
+
+
+def test_every_broadcast_is_remembered_for_the_history(sio, monkeypatch):
+    from app.stats_history import stats_history
+
+    monkeypatch.setattr(sockets.sio, 'emit', AsyncMock())
+    before = len(stats_history.samples())
+
+    async def one_round():
+        task = asyncio.create_task(sockets.broadcast_stats_forever(interval=0.01))
+        await asyncio.sleep(0.1)
+        task.cancel()
+
+    run(one_round())
+
+    samples = stats_history.samples()
+    assert len(samples) > before or len(samples) == 120
+    assert set(samples[-1]) == {'cpuUsage', 'cpuTemperature', 'ramUsage', 'humidity', 'temperature', 'timestamp'}

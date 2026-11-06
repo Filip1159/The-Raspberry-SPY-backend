@@ -94,6 +94,14 @@ An old `users.json` with plain-text passwords is migrated automatically the firs
 
 # Rate limiting
 
+The on-board ACT LED (switched off at night) is written through sysfs without `sudo`: install the udev rule once with `sudo cp configs/99-act-led.rules /etc/udev/rules.d/ && sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=leds` (the service user must be in the `gpio` group, which is the default for the first user). Without the rule the LED just stays as it is, with one warning in the log.
+
+The experimental Arduino websocket (port 8765, no authentication) is off; set `ARDUINO_WEBSOCKET=1` in the service environment to enable it on a trusted network.
+
+Local development with a real HLS picture: `docker compose -f docker-compose.dev.yml up` (MediaMTX + an ffmpeg test pattern, see the header of that file).
+
+Refresh tokens (`resources/refresh_tokens.json`, gitignored, created on first login) keep the browser signed in for 7 days (`REFRESH_TOKEN_DAYS`). The cookie is `Secure`, so it only works through the HTTPS tunnel; set `COOKIE_SECURE=0` only for plain-http tests. Deleting the file signs everybody out. Deploy the backend before the frontend: the new UI calls `/api/refresh`.
+
 The backend limits failed `POST /login` attempts (5/minute, 20/hour per visitor) and `POST /greetings` (3/minute, 20/hour per visitor), answering `429`. Visitors are told apart by the `CF-Connecting-IP` header that Cloudflare adds (nginx passes it on). As a second layer, add a rate limiting rule in Cloudflare (Security -> WAF -> Rate limiting rules; the free plan allows one rule):
 
 - If incoming requests match: `(http.host eq "api.filipwisniewski.pl" and http.request.uri.path in {"/api/login" "/api/greetings"})`

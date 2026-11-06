@@ -9,15 +9,19 @@ on:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # 3.11 is what the Raspberry runs, 3.13 is where it will end up
+        python-version: ["3.11", "3.13"]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Use Python 3.11
+      - name: Use Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: requirements*.txt
 

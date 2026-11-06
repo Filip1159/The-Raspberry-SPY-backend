@@ -1,6 +1,5 @@
 import asyncio
-import os
-from datetime import datetime
+import logging
 from threading import Thread
 from time import sleep
 
@@ -10,10 +9,14 @@ from gpiozero import Buzzer as GpioBuzzer
 from rpi_hardware_pwm import HardwarePWM
 from RPLCD.i2c import CharLCD
 
+from app.climate import ClimateReadings
 from app.hardware import Hardware
+from app.hardware.sysfs_led import ActLed
 
-LED_TRIGGER = '/sys/class/leds/ACT/trigger'
-LED_BRIGHTNESS = '/sys/class/leds/ACT/brightness'
+logger = logging.getLogger('hardware.ble')
+
+# The delay before the next attempt after a failure (no Bluetooth adapter, device out of range, ...)
+RETRY_SECONDS = 5
 
 HM10_NAME = 'BT05'
 CHAR_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb'
@@ -33,25 +36,11 @@ class BitBangedBuzzer:
             sleep(half_wave_time)
 
 
-class ActLed:
-    def take_control(self) -> None:
-        os.system(f'echo none | sudo tee {LED_TRIGGER} > /dev/null')
-
-    def set(self, on: bool) -> None:
-        os.system(f'echo {1 if on else 0} | sudo tee {LED_BRIGHTNESS} > /dev/null')
-
-    def release(self) -> None:
-        os.system(f'echo default-off | sudo tee {LED_TRIGGER} > /dev/null')
-
-
-class BleClimateSensor:
+class BleClimateSensor(ClimateReadings):
     """Polls the HM-10 BLE module of the battery-powered temperature/humidity sensor"""
 
     def __init__(self):
-        self.humidity: float | None = None
-        self.temperature: float | None = None
-        self.voltage: float | None = None
-        self.last_updated: datetime | None = None
+        super().__init__()
         self._thread: Thread | None = None
 
     def start(self) -> None:
@@ -59,15 +48,16 @@ class BleClimateSensor:
         self._thread.start()
 
     async def _scanner_loop(self):
+        # Whatever goes wrong (adapter switched off, bluez restarting, a packet the parser dislikes), this thread must not die
         while True:
-            device = await self._scan_for_device(timeout=5.0)
-            if device is None:
-                continue
-
             try:
-                await self._connect_and_receive(device)
-            except Exception as e:
-                print(f'[HM10] Connection error: {e}')
+                device = await self._scan_for_device(timeout=5.0)
+                if device is not None:
+                    await self._connect_and_receive(device)
+                    continue
+            except Exception:
+                logger.exception('BLE climate sensor failed, retrying in %s s', RETRY_SECONDS)
+            await asyncio.sleep(RETRY_SECONDS)
 
     async def _scan_for_device(self, timeout: float):
         devices = await BleakScanner.discover(timeout=timeout)
@@ -81,13 +71,9 @@ class BleClimateSensor:
             response_event = asyncio.Event()
 
             def notification_handler(_, data: bytearray):
-                try:
-                    text = data.decode('utf-8').strip()
-                except UnicodeDecodeError:
-                    text = repr(data)
-
-                self.__parse_response(text)
-                response_event.set()
+                text = data.decode('utf-8', errors='replace')
+                if self.apply_text(text):
+                    response_event.set()
 
             await client.start_notify(CHAR_UUID, notification_handler)
 
@@ -96,16 +82,9 @@ class BleClimateSensor:
             try:
                 await asyncio.wait_for(response_event.wait(), timeout=2.0)
             except TimeoutError:
-                print('[HM10] Error: No response')
+                logger.warning('No (valid) response from the sensor')
 
             await client.stop_notify(CHAR_UUID)
-
-    def __parse_response(self, data: str):
-        data_split = data.split(';')  # H=xx.x;T=xx.x;V=x.xx format
-        self.humidity = float(data_split[0][2:])
-        self.temperature = float(data_split[1][2:])
-        self.voltage = float(data_split[2][2:])
-        self.last_updated = datetime.now()
 
 
 def create_hardware() -> Hardware:

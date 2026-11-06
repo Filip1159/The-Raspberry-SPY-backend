@@ -1,10 +1,10 @@
 import json
 from datetime import datetime, timedelta
-from os import path
+from pathlib import Path
 from threading import Event, Lock, Thread
 
 from app.config import ALARMS_FILE
-from app.melody_player import melody_player
+from app.melody_player import MelodyPlayer
 
 DAY_TO_INT = {
     'monday': 0,
@@ -17,16 +17,17 @@ DAY_TO_INT = {
 }
 
 
-def load_schedule() -> list[dict]:
-    if not path.exists(ALARMS_FILE):
+def load_schedule(alarms_file: Path) -> list[dict]:
+    if not alarms_file.exists():
         raise FileNotFoundError("Alarms config file doesn't exist")
 
-    with open(ALARMS_FILE) as f:
+    with open(alarms_file) as f:
         return json.load(f)
 
 
 class AlarmManager:
-    def __init__(self):
+    def __init__(self, player: MelodyPlayer, alarms_file: Path = ALARMS_FILE):
+        self.__alarms_file = alarms_file
         self.__waiting_thread: Thread | None = None
         # `__reload_lock` serializes reloads (and may be held while waiting for the old thread to finish);
         # `__lock` only guards the schedule and is never held for long, because the waiting thread needs it after every alarm.
@@ -35,7 +36,7 @@ class AlarmManager:
         self.__lock = Lock()
         self.__stop_event = Event()
         self.schedule: list[dict] = []
-        self.player = melody_player
+        self.player = player
         self.reload()
 
     def reload(self):
@@ -43,7 +44,7 @@ class AlarmManager:
             self.__stop_current_thread()
 
             with self.__lock:
-                self.schedule = load_schedule()
+                self.schedule = load_schedule(self.__alarms_file)
                 upcoming = self.__find_next_run(self.schedule)
 
             if upcoming is None:
@@ -58,7 +59,7 @@ class AlarmManager:
 
     def save_day(self, new_alarm: dict):
         self.schedule = list(map(lambda alarm: new_alarm if alarm['day'] == new_alarm['day'] else alarm, self.schedule))
-        with open(ALARMS_FILE, 'w', encoding='utf-8') as file:
+        with open(self.__alarms_file, 'w', encoding='utf-8') as file:
             json.dump(self.schedule, file, ensure_ascii=False, indent=2)
         self.reload()
 
@@ -114,6 +115,3 @@ class AlarmManager:
         self.__stop_event.set()
         if self.__waiting_thread and self.__waiting_thread.is_alive():
             self.__waiting_thread.join()
-
-
-alarm_manager = AlarmManager()

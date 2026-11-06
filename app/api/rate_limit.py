@@ -56,3 +56,5 @@ class RateLimit:
 
 login_limit = RateLimit('login', '5 per minute;20 per hour')
 greetings_limit = RateLimit('greetings', '3 per minute;20 per hour')
+# The UI refreshes once per ~30 minutes per tab; this only stops somebody hammering the endpoint with guessed cookies
+refresh_limit = RateLimit('refresh', '30 per minute')

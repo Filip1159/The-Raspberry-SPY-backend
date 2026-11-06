@@ -1,6 +1,5 @@
 from enum import Enum, auto
 
-from app.hardware import get_hardware
 from app.hardware.interfaces import PwmChannel
 
 
@@ -88,7 +87,3 @@ class ServosController:
         if self.horizontal_servo_angle != new_angle:
             self.horizontal_servo_angle = new_angle
             self.horizontal_servo.change_duty_cycle(to_pwm(H_CENTER + self.horizontal_servo_angle))
-
-
-_hardware = get_hardware()
-servos_controller = ServosController(_hardware.vertical_servo, _hardware.horizontal_servo)

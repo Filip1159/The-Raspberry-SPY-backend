@@ -1,7 +1,6 @@
 from threading import Event, Thread
 from time import sleep
 
-from app.hardware import get_hardware
 from app.hardware.interfaces import Buzzer
 
 NOTE_TO_FREQ = {
@@ -652,6 +651,3 @@ class MelodyPlayer:
             else:
                 self.__buzzer.play_tone(NOTE_TO_FREQ[note], duration)
                 sleep(duration * 0.1)
-
-
-melody_player = MelodyPlayer(get_hardware().buzzer)

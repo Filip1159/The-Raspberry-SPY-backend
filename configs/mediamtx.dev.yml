@@ -1,0 +1,31 @@
+# MediaMTX for local development (docker-compose.dev.yml): the same JWT check as on the Raspberry, a test pattern instead of the camera
+logLevel: info
+authMethod: jwt
+authInternalUsers:
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: publish
+        path:
+      - action: read
+        path:
+      - action: playback
+        path:
+# Reading needs the token of the backend (`python main.py --fake`, which runs on the host)
+authJWTJWKS: http://host.docker.internal:8080/.well-known/jwks.json
+authJWTClaimKey: mediamtx_permissions
+authJWTExclude:
+  - action: publish
+authJWTInHTTPQuery: true
+
+rtsp: yes
+rtspAddress: :8554
+hls: yes
+hlsAddress: :8888
+hlsAllowOrigin: '*'
+hlsAlwaysRemux: yes
+hlsVariant: lowLatency
+
+paths:
+  cam1:

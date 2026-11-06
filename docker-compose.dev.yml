@@ -1,0 +1,27 @@
+# A camera picture for local development, so the stream page shows HLS instead of the generated test pattern:
+#
+#   python main.py --fake                       # backend on :8080 (it publishes the JWKS that MediaMTX uses)
+#   docker compose -f docker-compose.dev.yml up
+#   frontend: npm start with src/environment.ts pointing at http://localhost:8080 (API), http://localhost:8888 (hlsUrl), `mock: false`
+#
+# MediaMTX serves http://localhost:8888/cam1/index.m3u8?jwt=<token>; ffmpeg publishes a moving test pattern with a clock.
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:1
+    volumes:
+      - ./configs/mediamtx.dev.yml:/mediamtx.yml:ro
+    ports:
+      - '8888:8888'
+      - '8554:8554'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway' # Linux; Docker Desktop provides the name itself
+
+  test-camera:
+    image: linuxserver/ffmpeg:latest
+    depends_on:
+      - mediamtx
+    restart: on-failure
+    command: >
+      -re -f lavfi -i "testsrc2=size=1280x720:rate=25"
+      -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g 25
+      -f rtsp -rtsp_transport tcp rtsp://mediamtx:8554/cam1

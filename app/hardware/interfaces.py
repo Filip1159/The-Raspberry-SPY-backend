@@ -50,4 +50,7 @@ class ClimateSensor(Protocol):
     voltage: float | None
     last_updated: datetime | None
 
+    @property
+    def stale(self) -> bool: ...
+
     def start(self) -> None: ...

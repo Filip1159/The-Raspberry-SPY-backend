@@ -1,9 +1,8 @@
-from app.alarm_manager import alarm_manager
 from app.gpio.navigation import Navigation
-from app.gpio.servos_controller import servos_controller
 from app.hardware import get_hardware
 from app.hardware.fake import FakeLcd
-from app.melody_player import MELODIES, melody_player
+from app.melody_player import MELODIES
+from app.services import get_services
 from app.system_stats import get_cpu_percent, get_cpu_temperature, get_ram_usage
 
 
@@ -12,6 +11,7 @@ def test_hardware_is_simulated_in_tests():
 
 
 def test_servos_stay_within_limits():
+    servos_controller = get_services().servos_controller
     servos_controller.move('CENTER')
     for _ in range(100):
         servos_controller.move('UP_LEFT')
@@ -24,14 +24,15 @@ def test_servos_stay_within_limits():
 
 def test_lcd_shows_the_menu():
     hardware = get_hardware()
+    services = get_services()
     navigation = Navigation(
         hardware.lcd,
         hardware.encoder,
         hardware.button,
-        servos_controller,
+        services.servos_controller,
         hardware.camera_light,
-        alarm_manager,
-        melody_player,
+        services.alarm_manager,
+        services.melody_player,
         hardware.climate_sensor,
     )
 
@@ -61,6 +62,7 @@ def test_system_stats_are_numbers():
 
 
 def test_melodies_can_be_played_on_the_fake_buzzer():
+    melody_player = get_services().melody_player
     melody_player.play(next(iter(MELODIES)))
     assert melody_player.is_playing()
     melody_player.stop()

@@ -16,6 +16,7 @@ def main(argv: list[str]) -> int:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
     from app.config import USERS_FILE
+    from app.refresh_tokens import revoke_all
     from app.users import load_users, migrate_plaintext_passwords, set_password
 
     command = argv[1] if len(argv) > 1 else ''
@@ -39,6 +40,8 @@ def main(argv: list[str]) -> int:
             return 1
         created = set_password(USERS_FILE, argv[2], password)
         print(f'{"Added" if created else "Updated"} {argv[2]} in {USERS_FILE}')
+        if not created:
+            print(f'Signed {argv[2]} out of {revoke_all(argv[2])} browser session(s); access tokens expire within 30 minutes')
         return 0
 
     print(__doc__)

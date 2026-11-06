@@ -8,11 +8,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.allowed_origins import ALLOWED_ORIGINS
 from app.api.errors import ApiError, api_error_handler
-from app.api.routers import alarms, auth, greetings, health
+from app.api.routers import alarms, auth, greetings, health, stats
 from app.api.sockets import broadcast_stats_forever, sio
 from app.config import API_DOCS_ENABLED, USERS_FILE
 from app.hardware import get_hardware
 from app.local_interface import start_local_interface
+from app.services import get_services
 from app.users import migrate_plaintext_passwords
 from app.websocket_manager import websocket_manager
 
@@ -22,6 +23,7 @@ MAX_BODY_BYTES = 64 * 1024  # the API only receives small JSON bodies
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     get_hardware().climate_sensor.start()
+    get_services()  # creates the alarm scheduler and the servos now, not on the first request
     websocket_manager.start()
     start_local_interface()
     stats_task = asyncio.create_task(broadcast_stats_forever())
@@ -58,8 +60,8 @@ def create_app() -> FastAPI:
     api.add_exception_handler(ApiError, api_error_handler)
     api.add_middleware(BodyLimitMiddleware)
     # Added last = outermost: errors (429, 401, 413) must carry the CORS headers too, otherwise the browser cannot read them
-    api.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS, allow_methods=['*'], allow_headers=['*'])
-    for router in (alarms.router, auth.router, greetings.router, health.router):
+    api.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS, allow_methods=['*'], allow_headers=['*'], allow_credentials=True)
+    for router in (alarms.router, auth.router, greetings.router, health.router, stats.router):
         api.include_router(router)
     return api
 

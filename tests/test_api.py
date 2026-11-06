@@ -4,7 +4,9 @@ import itertools
 
 import pytest
 
+from app import refresh_tokens
 from app.api.routers import greetings as greetings_router
+from app.api.security import decode_token
 from app.config import GREETINGS_FILE
 from app.json_store import read_json, write_json
 from app.validation import MAX_GREETING_LENGTH
@@ -141,20 +143,20 @@ def test_invalid_alarms_are_rejected(client, auth_headers, payload):
 
 
 def test_saving_alarms_reloads_the_scheduler(client, auth_headers, monkeypatch):
-    from app.alarm_manager import alarm_manager
+    from app.services import get_services
 
     reloads = []
-    monkeypatch.setattr(alarm_manager, 'reload', lambda: reloads.append(1))
+    monkeypatch.setattr(get_services().alarm_manager, 'reload', lambda: reloads.append(1))
     client.post('/alarms', json=[], headers=auth_headers)
 
     assert reloads == [1]
 
 
 def test_play_validates_the_melody(client, auth_headers, monkeypatch):
-    from app.alarm_manager import alarm_manager
+    from app.services import get_services
 
     played = []
-    monkeypatch.setattr(alarm_manager.player, 'play', played.append)
+    monkeypatch.setattr(get_services().melody_player, 'play', played.append)
 
     assert client.post('/alarms/play', json={'melody': 'Nokia'}, headers=auth_headers).status_code == 204
     assert played == ['Nokia']
@@ -271,3 +273,120 @@ def test_greeting_that_is_not_json_is_rejected(client):
     response = client.post('/greetings', content='not json', headers=from_ip('10.1.9.1', **{'Content-Type': 'text/plain'}))
 
     assert response.status_code == 400
+
+
+# ---- refresh tokens ----
+
+
+def _login(client):
+    response = client.post('/login', json={'username': 'demo', 'password': 'demo'})
+    assert response.status_code == 200
+    return response
+
+
+def test_login_sets_an_httponly_strict_refresh_cookie(client):
+    response = _login(client)
+
+    cookie = response.headers['set-cookie']
+    assert cookie.startswith('refresh_token=')
+    assert 'HttpOnly' in cookie
+    assert 'SameSite=strict' in cookie
+    assert 'refresh_token' not in response.json()
+
+
+def test_refresh_returns_a_new_access_token_and_a_new_cookie(client):
+    client.cookies.clear()
+    _login(client)
+    first_cookie = client.cookies.get('refresh_token')
+
+    response = client.post('/refresh')
+
+    assert response.status_code == 200
+    body = response.json()
+    assert decode_token(body['access_token'])['sub'] == 'demo'
+    assert client.cookies.get('refresh_token') not in (None, first_cookie)
+
+
+def test_refresh_without_a_cookie_is_unauthorized(client):
+    client.cookies.clear()
+
+    response = client.post('/refresh')
+
+    assert response.status_code == 401
+    assert response.json() == {'msg': 'No valid refresh token'}
+
+
+def test_refresh_rejects_an_unknown_token(client):
+    client.cookies.clear()
+    client.cookies.set('refresh_token', 'made-up')
+
+    assert client.post('/refresh').status_code == 401
+    client.cookies.clear()
+
+
+def test_a_spent_refresh_token_stops_working_after_the_grace_period(client, monkeypatch):
+    client.cookies.clear()
+    _login(client)
+    old = client.cookies.get('refresh_token')
+    assert client.post('/refresh').status_code == 200
+
+    # still fine right away (two tabs refreshing together)
+    client.cookies.set('refresh_token', old)
+    assert client.post('/refresh').status_code == 200
+
+    real_now = refresh_tokens._now
+    monkeypatch.setattr(refresh_tokens, '_now', lambda: real_now() + refresh_tokens.GRACE_SECONDS + 5)
+    client.cookies.set('refresh_token', old)
+    assert client.post('/refresh').status_code == 401
+
+
+def test_an_expired_refresh_token_is_rejected(client, monkeypatch):
+    client.cookies.clear()
+    _login(client)
+    real_now = refresh_tokens._now
+    monkeypatch.setattr(refresh_tokens, '_now', lambda: real_now() + (refresh_tokens.REFRESH_TOKEN_DAYS * 24 * 3600) + 5)
+
+    assert client.post('/refresh').status_code == 401
+
+
+def test_logout_revokes_the_refresh_token(client):
+    client.cookies.clear()
+    _login(client)
+    cookie = client.cookies.get('refresh_token')
+
+    response = client.post('/logout')
+    assert response.status_code == 204
+    assert 'Max-Age=0' in response.headers['set-cookie']
+
+    client.cookies.set('refresh_token', cookie)
+    assert client.post('/refresh').status_code == 401
+
+
+def test_cors_allows_credentials_for_the_site(client):
+    response = client.post('/refresh', headers={'Origin': 'https://filipwisniewski.pl'})
+
+    assert response.headers['access-control-allow-credentials'] == 'true'
+
+
+def test_refresh_is_rate_limited_per_visitor(client):
+    headers = from_ip('203.0.113.77')
+    statuses = [client.post('/refresh', headers=headers).status_code for _ in range(31)]
+
+    assert statuses[:30] == [401] * 30
+    assert statuses[30] == 429
+    assert client.post('/refresh', headers=from_ip('203.0.113.78')).status_code == 401
+
+
+def test_revoking_all_sessions_of_a_user_signs_every_browser_out(client):
+    client.cookies.clear()
+    _login(client)
+    first = client.cookies.get('refresh_token')
+    client.cookies.clear()
+    _login(client)
+    second = client.cookies.get('refresh_token')
+
+    assert refresh_tokens.revoke_all('demo') >= 2
+
+    for cookie in (first, second):
+        client.cookies.set('refresh_token', cookie)
+        assert client.post('/refresh', headers=from_ip(f'198.51.100.{next(_ips)}')).status_code == 401

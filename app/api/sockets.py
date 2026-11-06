@@ -8,8 +8,9 @@ from socketio.exceptions import ConnectionRefusedError
 
 from app.allowed_origins import ALLOWED_ORIGINS
 from app.api.security import decode_token
-from app.gpio.servos_controller import servos_controller
 from app.hardware import get_hardware
+from app.services import get_services
+from app.stats_history import stats_history
 from app.system_stats import get_cpu_percent, get_cpu_temperature, get_ram_usage
 
 logger = logging.getLogger('sockets')
@@ -60,7 +61,7 @@ def _control_hardware(msg: str) -> None:
         if msg.startswith('LED'):
             camera_light.value = min(1.0, max(0.0, float(msg[3:]) / 255))
         else:
-            servos_controller.move(msg)
+            get_services().servos_controller.move(msg)
     except (ValueError, KeyError):
         logger.warning('Ignoring unknown camera command %r', msg[:20])
 
@@ -71,16 +72,14 @@ async def broadcast_stats_forever(interval: float = 5) -> None:
     while True:
         await asyncio.sleep(interval)
         last = climate_sensor.last_updated
-        await sio.emit(
-            'ble_update',
-            {
-                'humidity': climate_sensor.humidity,
-                'temperature': climate_sensor.temperature,
-                'voltage': climate_sensor.voltage,
-                'lastUpdated': last.strftime('%H:%M:%S') if last is not None else None,
-            },
-        )
-        await sio.emit(
-            'system_stats_update',
-            {'cpuUsage': get_cpu_percent(), 'cpuTemperature': get_cpu_temperature(), 'ramUsage': get_ram_usage()},
-        )
+        climate = {
+            'humidity': climate_sensor.humidity,
+            'temperature': climate_sensor.temperature,
+            'voltage': climate_sensor.voltage,
+            'lastUpdated': last.strftime('%H:%M:%S') if last is not None else None,
+            'stale': climate_sensor.stale,
+        }
+        system = {'cpuUsage': get_cpu_percent(), 'cpuTemperature': get_cpu_temperature(), 'ramUsage': get_ram_usage()}
+        stats_history.add({**system, 'humidity': climate['humidity'], 'temperature': climate['temperature'], 'timestamp': int(time())})
+        await sio.emit('ble_update', climate)
+        await sio.emit('system_stats_update', system)
