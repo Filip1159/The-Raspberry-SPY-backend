@@ -7,6 +7,10 @@ lib64/**
 share/**
 resources/users.json
 /.venv/
+# legacy virtualenv that used to be committed (created in the checkout itself)
+/bin/
+/lib64
+/pyvenv.cfg
 .dev-data/
 .pytest_cache/
 .ruff_cache/

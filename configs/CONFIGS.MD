@@ -58,23 +58,11 @@ sudo systemctl status raspberry-spy
 sudo systemctl restart raspberry-spy
 ```
 
-The python used is `<checkout>/.venv/bin/python` (create it with `scripts/setup_venv.sh`), else the legacy `<checkout>/bin/python`, else `python3`.
+The python used is `<checkout>/.venv/bin/python` (create it with `scripts/setup_venv.sh`), else `python3`.
 
-## Moving to `.venv` (one-time)
+## Old committed virtualenv
 
-Until now the virtualenv was **committed to git** (`bin/`, `lib64`, `pyvenv.cfg` at the root of the checkout, created for `/home/fwisn/Documents/camera-app`). It is being replaced by an untracked `.venv`. Order matters: removing the old one from git makes `git pull` delete `bin/`, so the service has to be on `.venv` first.
-
-```bash
-git pull                                # brings scripts/setup_venv.sh (the old venv is still tracked and untouched)
-scripts/setup_venv.sh                   # creates .venv and installs requirements-raspberry.txt (a few minutes on the Pi)
-.venv/bin/python -c "import gpiozero, bleak, RPLCD, fastapi"   # sanity check
-scripts/install_service.sh              # re-renders the unit: it now points at .venv/bin/python
-sudo systemctl status raspberry-spy     # healthy? then the old venv is no longer needed
-```
-
-If `pip` fails to build `lgpio`/`rpi-lgpio`, install the build tools first: `sudo apt install python3-dev swig liblgpio-dev`.
-
-Only after that is the old virtualenv removed from the repository (a separate commit; after it `git pull` deletes `bin/`, `lib64` and `pyvenv.cfg` on the Pi, and the untracked `lib/` can be deleted by hand).
+Older checkouts have a virtualenv in the root of the repository (`bin/`, `lib/`, `lib64`, `pyvenv.cfg`, created for `/home/fwisn/Documents/camera-app`). It is no longer tracked or used: the service runs from `.venv`. After the `git pull` that stopped tracking it, remove what is left: `rm -rf bin lib lib64 pyvenv.cfg` (check first that `systemctl status raspberry-spy` shows `.venv/bin/python`).
 
 # Cloudflare Tunnel
 

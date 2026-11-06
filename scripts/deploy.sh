@@ -5,7 +5,6 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 PYTHON="python3"
-[ -x bin/python ] && PYTHON="bin/python"   # legacy virtualenv that used to be committed
 [ -x .venv/bin/python ] && PYTHON=".venv/bin/python"
 
 before="$(git rev-parse HEAD)"
