@@ -16,7 +16,6 @@ Update the `mediamtx.yml` config file with the contents provided in this directo
 
 Run `./mediamtx`. Make sure that there are no warnings in the logs
 
-
 # Nginx
 
 Install the Nginx v1.22.1 using `apt`
@@ -48,6 +47,25 @@ The tunnel is managed from the Cloudflare dashboard, so there is no config file 
 Check: `curl -i https://api.filipwisniewski.pl/flask/.well-known/jwks.json`
 
 Allowed browser origins are set in `app/allowed_origins.py` (Flask, Socket.IO) and `hlsAllowOrigin` in `mediamtx.yml`. For local development set `EXTRA_ALLOWED_ORIGINS=http://localhost:4200`.
+
+# Users and passwords
+
+`resources/users.json` holds `{"username": ..., "password_hash": ...}` entries (scrypt hashes). Manage them on the Raspberry:
+
+```bash
+python scripts/manage_users.py list
+python scripts/manage_users.py add <username>   # asks for the password; also changes it for an existing user
+python scripts/manage_users.py migrate          # only for an old file with plain-text "password" fields
+```
+
+An old `users.json` with plain-text passwords is migrated automatically the first time the new backend starts (the log says "Replaced N plain-text password(s)"). No restart is needed after adding a user.
+
+# Rate limiting
+
+The backend limits failed `POST /login` attempts (5/minute, 20/hour per visitor) and `POST /greetings` (3/minute, 20/hour per visitor), answering `429`. Visitors are told apart by the `CF-Connecting-IP` header that Cloudflare adds (nginx passes it on). As a second layer, add a rate limiting rule in Cloudflare (Security -> WAF -> Rate limiting rules; the free plan allows one rule):
+
+- If incoming requests match: `(http.host eq "api.filipwisniewski.pl" and http.request.uri.path in {"/flask/login" "/flask/greetings"})`
+- Same characteristics: IP, rate: 10 requests per 10 seconds, action: Block for 10 seconds
 
 # Python dependencies
 

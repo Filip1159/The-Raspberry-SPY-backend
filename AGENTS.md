@@ -44,6 +44,9 @@ python main.py                     # DO NOT enable debug=True (breaks GPIO, see 
 ```
 main.py                     # starts the climate sensor, Arduino websocket and local LCD interface, 5 s Timer loop emitting 'ble_update' / 'system_stats_update', then run_server()
 app/config.py               # hardware mode, data dir and file paths, port (all from env/argv with defaults)
+app/users.py + scripts/manage_users.py  # users.json: scrypt hashes (werkzeug), constant-time verify with a dummy hash for unknown users, startup migration of plain-text passwords
+app/rate_limit.py           # Flask-Limiter (in-memory), key = CF-Connecting-IP (the real visitor behind Cloudflare/nginx)
+app/json_store.py           # locked, atomic read/write/update of the JSON data files
 app/hardware/               # interfaces.py (Protocols), raspberry.py (real: gpiozero/RPLCD/PWM/BLE), fake.py (simulated), __init__.py = get_hardware() composition root
 app/local_interface.py      # LCD + rotary encoder UI loop (backlight/ACT LED auto-off); started from main.py
 app/dev_data.py + scripts/dev_setup.py  # generate keys/users/alarms/greetings for fake mode and tests
@@ -51,9 +54,9 @@ tests/                      # pytest, simulated hardware, temp data dir (tests/c
 app/server.py               # Flask app, JWT (RS256, public key), CORS, blueprints, SocketIO
 app/allowed_origins.py      # CORS/Socket.IO origin allow-list (+ EXTRA_ALLOWED_ORIGINS env for dev)
 app/controller/
-  auth_controller.py        # POST /login (users.json), GET /.well-known/jwks.json; token: 30 min, claims sub + mediamtx_permissions
-  alarms_controller.py      # GET/POST /alarms, POST /alarms/play (JWT required)
-  greetings_controller.py   # GET/POST /greetings (public)
+  auth_controller.py        # POST /login (users.json, hashed passwords, 5 failed attempts/min per visitor), GET /.well-known/jwks.json; token: 30 min, claims sub + mediamtx_permissions
+  alarms_controller.py      # GET/POST /alarms (POST reloads the scheduler), POST /alarms/play (melody validated); JWT required
+  greetings_controller.py   # POST /greetings (public, max 500 chars, 3/min and 20/h per visitor, last 1000 kept), GET /greetings (JWT required)
   health_controller.py      # GET /health (public liveness probe, used by the frontend's offline detection)
   socket_controller.py      # Socket.IO: JWT required in handshake `auth.token` (else refused as 'unauthorized'); 'message' -> servo direction name or 'LED<0-255>'
 app/alarm_manager.py        # background thread waits for next weekly alarm, plays melody; alarms.json is source of truth
@@ -69,15 +72,15 @@ configs/                    # nginx, MediaMTX, setup docs
 
 - Ruff: line length 140, single quotes, space indent, rules E/F/I/B/UP (`pyproject.toml`). Match the existing style: blueprints per resource, module-level singletons (`alarm_manager`, `melody_player`, `servos_controller`) built from `get_hardware()`, threads with `daemon=True`. Hardware access always goes through the interfaces in `app/hardware/interfaces.py`; add a fake implementation whenever you add a real one.
 - Persistence is plain JSON files; there is no database.
-- Secrets/files that must exist on the Pi but are not in git (fake mode generates throwaway ones): `resources/users.json` (list of `{username,password}`), `resources/private_key.pem`, `resources/public_key.pem` (RS256 pair; the public key is also published as JWKS).
+- Secrets/files that must exist on the Pi but are not in git (fake mode generates throwaway ones): `resources/users.json` (list of `{username,password_hash}`, managed with `scripts/manage_users.py`; a legacy file with plain `password` fields is hashed automatically on startup), `resources/private_key.pem`, `resources/public_key.pem` (RS256 pair; the public key is also published as JWKS).
 - Keep CORS origins in `app/allowed_origins.py` and `hlsAllowOrigin` in `mediamtx.yml` in sync with the frontend domain.
 
 ## Gotchas / known weak spots (see BACKLOG.md)
 
 - Socket.IO sessions stay connected after their JWT expires (the `message` handler then disconnects them) and still receive the 5 s stats broadcast until the client disconnects.
-- `users.json` stores plaintext passwords; `/login` and `/greetings` have no rate limiting; `GET /greetings` is public and returns everything ever sent.
-- `POST /alarms/play` doesn't validate the melody name; a bad value raises inside the handler.
 - The ACT LED is controlled with `os.system('... sudo tee ...')` in `app/hardware/raspberry.py`; Flask must run with passwordless sudo for that to work.
 - Singletons are still created at import time (through `get_hardware()`); a full dependency-injection container is a possible follow-up (BACKLOG E4).
 - The checked-in venv (`bin/`, `lib64`, `pyvenv.cfg`) is Python 3.11 while `pyproject.toml` targets py313; CI uses 3.11.
-- `GET /alarms` and `GET /greetings` return the raw JSON file with a `text/html` content type (the frontend parses it anyway); tests parse the body manually.
+- Rate-limit counters live in memory (one Flask process): they reset on restart and are keyed by the `CF-Connecting-IP` header, which someone with direct access to nginx/Flask on the home network could forge. A Cloudflare rate-limiting rule in front of the tunnel is the second layer (see `configs/CONFIGS.MD`).
+- Tokens last 30 minutes and cannot be refreshed; Socket.IO sessions are only checked for expiry when a message arrives.
+- Adding a user: `python scripts/manage_users.py add <name>` on the Pi (minimum 10 characters); no restart needed, `users.json` is read on every login.

@@ -1,6 +1,3 @@
-import json
-
-
 def test_health(client):
     response = client.get('/health')
 
@@ -38,8 +35,7 @@ def test_alarms_roundtrip(client, auth_headers):
     alarms = [{'day': 'monday', 'hour': 6, 'minute': 30, 'melody': 'Nokia', 'enabled': True}]
 
     assert client.post('/alarms', json=alarms, headers=auth_headers).status_code == 201
-    # the endpoint returns the stored file as is (content type text/html), so parse the body manually
-    assert json.loads(client.get('/alarms', headers=auth_headers).get_data(as_text=True)) == alarms
+    assert client.get('/alarms', headers=auth_headers).get_json() == alarms
 
 
 def test_alarms_validation(client, auth_headers):
@@ -49,11 +45,11 @@ def test_alarms_validation(client, auth_headers):
     assert client.post('/alarms', json={'not': 'a list'}, headers=auth_headers).status_code == 400
 
 
-def test_greetings_roundtrip(client):
-    assert client.post('/greetings', json={'text': 'Hello from the tests'}).status_code == 201
-    assert client.post('/greetings', json={'text': ''}).status_code == 400
+def test_greetings_roundtrip(client, auth_headers):
+    assert client.post('/greetings', json={'text': 'Hello from the tests'}, headers={'CF-Connecting-IP': '10.0.0.1'}).status_code == 201
+    assert client.post('/greetings', json={'text': ''}, headers={'CF-Connecting-IP': '10.0.0.1'}).status_code == 400
 
-    greetings = json.loads(client.get('/greetings').get_data(as_text=True))
+    greetings = client.get('/greetings', headers=auth_headers).get_json()
     assert greetings[-1]['text'] == 'Hello from the tests'
 
 

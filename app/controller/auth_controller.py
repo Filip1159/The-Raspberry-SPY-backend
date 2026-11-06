@@ -6,7 +6,9 @@ from flask import Blueprint, jsonify, request
 from jwcrypto import jwk
 
 from app.config import USERS_FILE
+from app.rate_limit import limiter
 from app.secret_provider import get_keys
+from app.users import verify_credentials
 
 auth = Blueprint('auth', __name__)
 
@@ -22,20 +24,18 @@ def jwks():
     return jsonify({'keys': [public_jwk_json]})
 
 
+# Only failed attempts count towards the limit, so legitimate logins are never blocked
 @auth.route('/login', methods=['POST'])
+@limiter.limit('5 per minute;20 per hour', deduct_when=lambda response: response.status_code == 401)
 def login():
-    data = request.get_json() or {}
-    username = data.get('username')
-    password = data.get('password')
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        data = {}
 
-    with open(USERS_FILE) as f:
-        users = json.load(f)
-        matching_users = list(filter(lambda u: u['username'] == username and u['password'] == password, users))
+    if not verify_credentials(USERS_FILE, data.get('username'), data.get('password')):
+        return jsonify({'msg': 'bad credentials'}), 401
 
-        if len(matching_users) == 0:
-            return jsonify({'msg': 'bad credentials'}), 401
-
-        return prepare_token(username)
+    return prepare_token(data['username'])
 
 
 def prepare_token(username):

@@ -1,10 +1,9 @@
-import json
-
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 
 from app.alarm_manager import alarm_manager
 from app.config import ALARMS_FILE
+from app.json_store import read_json, write_json
 from app.melody_player import MELODIES
 
 alarms = Blueprint('alarms', __name__, url_prefix='/alarms')
@@ -13,7 +12,7 @@ alarms = Blueprint('alarms', __name__, url_prefix='/alarms')
 @alarms.route('', methods=['POST'])
 @jwt_required()
 def set_alarms():
-    data = request.get_json()
+    data = request.get_json(silent=True)
 
     if not isinstance(data, list):
         return jsonify({'error': 'Body must be a list'}), 400
@@ -43,8 +42,9 @@ def set_alarms():
         if not isinstance(enabled, bool):
             return jsonify({'error': f'Invalid enabled value at index {index}'}), 400
 
-    with open(ALARMS_FILE, 'w', encoding='utf-8') as file:
-        json.dump(data, file, ensure_ascii=False, indent=2)
+    write_json(ALARMS_FILE, data)
+    # Without this the running scheduler keeps the old schedule until Flask is restarted
+    alarm_manager.reload()
 
     return '', 201
 
@@ -52,14 +52,16 @@ def set_alarms():
 @alarms.route('', methods=['GET'])
 @jwt_required()
 def get_alarms():
-    with open(ALARMS_FILE, encoding='utf-8') as file:
-        return file.read(), 200
+    return jsonify(read_json(ALARMS_FILE))
 
 
 @alarms.route('/play', methods=['POST'])
 @jwt_required()
 def play():
-    data = request.get_json()
-    melody = data.get('melody')
+    data = request.get_json(silent=True)
+    melody = data.get('melody') if isinstance(data, dict) else None
+    if not isinstance(melody, str) or melody not in MELODIES:
+        return jsonify({'error': 'Unknown melody'}), 400
+
     alarm_manager.player.play(melody)
     return '', 204

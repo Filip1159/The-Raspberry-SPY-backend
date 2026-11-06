@@ -32,3 +32,6 @@ KEY_PRIVATE_PATH = DATA_DIR / 'private_key.pem'
 KEY_PUBLIC_PATH = DATA_DIR / 'public_key.pem'
 
 PORT = int(environ.get('PORT', 8080))
+
+# Rate limits on /login and /greetings; the switch exists for load tests and debugging, keep it on in production
+RATE_LIMITS_ENABLED = environ.get('RATE_LIMITS_ENABLED', '1') != '0'

@@ -4,6 +4,7 @@ from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from werkzeug.security import generate_password_hash
 
 from app.config import BASE_DIR
 
@@ -32,7 +33,7 @@ def ensure_dev_data(data_dir: Path) -> list[str]:
 
     users_path = data_dir / 'users.json'
     if not users_path.exists():
-        users_path.write_text(json.dumps([{'username': 'demo', 'password': 'demo'}], indent=2))
+        users_path.write_text(json.dumps([{'username': 'demo', 'password_hash': generate_password_hash('demo')}], indent=2))
         created.append(users_path.name)
 
     alarms_path = data_dir / 'alarms.json'
