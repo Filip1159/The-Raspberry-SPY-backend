@@ -3,9 +3,6 @@ server {
 
     server_name localhost;
 
-    root /home/fwisn/Documents/raspberry-ui/dist/raspberry-ui/browser;
-    index index.html;
-
     location /flask {
         rewrite ^/flask(.*)$ $1 break;
         proxy_pass http://127.0.0.1:8080;
@@ -50,6 +47,6 @@ server {
     }
 
     location / {
-        try_files $uri $uri/ /index.html;
+        return 404;
     }
 }

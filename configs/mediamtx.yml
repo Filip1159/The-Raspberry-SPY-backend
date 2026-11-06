@@ -322,7 +322,7 @@ hlsServerKey: server.key
 hlsServerCert: server.crt
 # Value of the Access-Control-Allow-Origin header provided in every HTTP response.
 # This allows to play the HLS stream from an external website.
-hlsAllowOrigin: '*'
+hlsAllowOrigin: 'https://filipwisniewski.pl'
 # List of IPs or CIDRs of proxies placed before the HLS server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.

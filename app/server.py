@@ -2,6 +2,7 @@ from flask import Flask
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 
+from app.allowed_origins import ALLOWED_ORIGINS
 from app.controller.alarms_controller import alarms
 from app.controller.auth_controller import auth
 from app.controller.greetings_controller import greetings
@@ -12,7 +13,7 @@ app = Flask('rpi_server')
 app.config['JWT_ALGORITHM'] = 'RS256'
 app.config['JWT_PUBLIC_KEY'] = open(KEY_PUBLIC_PATH).read()
 jwt_manager = JWTManager(app)
-CORS(app)
+CORS(app, origins=ALLOWED_ORIGINS)
 
 app.register_blueprint(alarms)
 app.register_blueprint(auth)

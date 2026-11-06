@@ -33,9 +33,21 @@ Make Nginx run on boot
 sudo systemctl enable nginx
 ```
 
-# Ngrok
+# Cloudflare Tunnel
 
-See the [Raspberry Pi installation guide](https://ngrok.com/docs/guides/device-gateway/raspberry-pi).
+The frontend is hosted on GitHub Pages (`https://filipwisniewski.pl`). The Raspberry only exposes the API, websocket and HLS stream at `https://api.filipwisniewski.pl` through a Cloudflare Tunnel. The domain's DNS must be managed by Cloudflare (nameservers changed at the registrar; the domain itself can stay registered elsewhere).
+
+The GitHub Pages DNS records (`A` for `@`, `CNAME` for `www`) must be set to **DNS only** (grey cloud), otherwise GitHub cannot issue the HTTPS certificate.
+
+The tunnel is managed from the Cloudflare dashboard, so there is no config file on the Raspberry:
+
+1. Zero Trust -> Networks -> Tunnels -> Create a tunnel -> Cloudflared. Name it `raspberry-spy`.
+2. Choose Debian / arm64 and run the displayed commands on the Raspberry. The last one is `sudo cloudflared service install <token>`, which installs and enables the systemd service.
+3. Add a public hostname: subdomain `api`, domain `filipwisniewski.pl`, service `HTTP`, URL `localhost:5000`. The DNS record is created automatically.
+
+Check: `curl -i https://api.filipwisniewski.pl/flask/.well-known/jwks.json`
+
+Allowed browser origins are set in `app/allowed_origins.py` (Flask, Socket.IO) and `hlsAllowOrigin` in `mediamtx.yml`. For local development set `EXTRA_ALLOWED_ORIGINS=http://localhost:4200`.
 
 # Hardware PWM
 

@@ -1,9 +1,10 @@
 from flask_socketio import SocketIO, send
 
+from app.allowed_origins import ALLOWED_ORIGINS
 from app.gpio.gpio import camera_light
 from app.gpio.servos_controller import servos_controller
 
-socketio = SocketIO(cors_allowed_origins='*')
+socketio = SocketIO(cors_allowed_origins=ALLOWED_ORIGINS)
 
 
 @socketio.on('connect')
