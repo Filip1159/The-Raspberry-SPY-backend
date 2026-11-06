@@ -1,0 +1,20 @@
+# systemd unit for MediaMTX (HLS stream of the camera). Do not copy it by hand: scripts/install_mediamtx_service.sh
+# fills in __USER__ and installs it as /etc/systemd/system/mediamtx.service.
+[Unit]
+Description=MediaMTX (camera stream, HLS on :8888)
+After=network-online.target raspberry-spy.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+# rpicam-vid (started by the cam1 path in mediamtx.yml) needs the camera device
+SupplementaryGroups=video
+WorkingDirectory=/mediamtx
+ExecStart=/mediamtx/mediamtx /mediamtx/mediamtx.yml
+Restart=on-failure
+RestartSec=5
+# the default KillMode (control-group) also stops the rpicam-vid | ffmpeg pipeline that MediaMTX started
+
+[Install]
+WantedBy=multi-user.target

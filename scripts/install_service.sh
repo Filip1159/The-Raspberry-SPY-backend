@@ -7,9 +7,9 @@ set -euo pipefail
 WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SERVICE_USER="${SERVICE_USER:-$(id -un)}"
 
-# the virtualenv the backend was installed into: the checkout itself (bin/python), .venv, or the system python
-if [ -x "$WORKDIR/bin/python" ]; then PYTHON="$WORKDIR/bin/python"
-elif [ -x "$WORKDIR/.venv/bin/python" ]; then PYTHON="$WORKDIR/.venv/bin/python"
+# the virtualenv: .venv (scripts/setup_venv.sh), else the legacy one that used to live in the checkout (bin/python)
+if [ -x "$WORKDIR/.venv/bin/python" ]; then PYTHON="$WORKDIR/.venv/bin/python"
+elif [ -x "$WORKDIR/bin/python" ]; then PYTHON="$WORKDIR/bin/python"
 else PYTHON="$(command -v python3)"
 fi
 

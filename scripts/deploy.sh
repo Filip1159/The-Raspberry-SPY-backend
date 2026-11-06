@@ -5,7 +5,7 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 PYTHON="python3"
-[ -x bin/python ] && PYTHON="bin/python"
+[ -x bin/python ] && PYTHON="bin/python"   # legacy virtualenv that used to be committed
 [ -x .venv/bin/python ] && PYTHON=".venv/bin/python"
 
 before="$(git rev-parse HEAD)"
@@ -19,6 +19,10 @@ fi
 
 if [ "$before" != "$after" ] && ! git diff --quiet "$before" "$after" -- configs/default; then
     echo "NOTE: configs/default (nginx) changed. Apply it: sudo cp configs/default /etc/nginx/sites-available/default && sudo nginx -t && sudo systemctl reload nginx"
+fi
+
+if [ "$before" != "$after" ] && ! git diff --quiet "$before" "$after" -- configs/mediamtx.yml; then
+    echo "NOTE: configs/mediamtx.yml changed. Apply it: scripts/install_mediamtx_service.sh (copies the config and restarts MediaMTX)"
 fi
 
 sudo systemctl restart raspberry-spy.service

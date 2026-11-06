@@ -14,7 +14,14 @@ sudo tar xzvf mediamtx_v1.15.3_linux_armv7.tar.gz
 
 Update the `mediamtx.yml` config file with the contents provided in this directory.
 
-Run `./mediamtx`. Make sure that there are no warnings in the logs
+Run `./mediamtx` once by hand to check that there are no warnings in the logs, then stop it and run it as a service (it starts on boot and restarts after a crash; the `rpicam-vid | ffmpeg` pipeline of the `cam1` path stops and starts with it):
+
+```bash
+scripts/install_mediamtx_service.sh   # from the backend checkout: copies configs/mediamtx.yml to /mediamtx, installs and starts the unit
+journalctl -u mediamtx -f             # logs
+```
+
+After a change of `configs/mediamtx.yml` run the script again (`scripts/deploy.sh` reminds you).
 
 # Nginx
 
@@ -51,7 +58,23 @@ sudo systemctl status raspberry-spy
 sudo systemctl restart raspberry-spy
 ```
 
-The python used is `<checkout>/bin/python` (the virtualenv that lives in the checkout), else `.venv/bin/python`, else `python3`.
+The python used is `<checkout>/.venv/bin/python` (create it with `scripts/setup_venv.sh`), else the legacy `<checkout>/bin/python`, else `python3`.
+
+## Moving to `.venv` (one-time)
+
+Until now the virtualenv was **committed to git** (`bin/`, `lib64`, `pyvenv.cfg` at the root of the checkout, created for `/home/fwisn/Documents/camera-app`). It is being replaced by an untracked `.venv`. Order matters: removing the old one from git makes `git pull` delete `bin/`, so the service has to be on `.venv` first.
+
+```bash
+git pull                                # brings scripts/setup_venv.sh (the old venv is still tracked and untouched)
+scripts/setup_venv.sh                   # creates .venv and installs requirements-raspberry.txt (a few minutes on the Pi)
+.venv/bin/python -c "import gpiozero, bleak, RPLCD, fastapi"   # sanity check
+scripts/install_service.sh              # re-renders the unit: it now points at .venv/bin/python
+sudo systemctl status raspberry-spy     # healthy? then the old venv is no longer needed
+```
+
+If `pip` fails to build `lgpio`/`rpi-lgpio`, install the build tools first: `sudo apt install python3-dev swig liblgpio-dev`.
+
+Only after that is the old virtualenv removed from the repository (a separate commit; after it `git pull` deletes `bin/`, `lib64` and `pyvenv.cfg` on the Pi, and the untracked `lib/` can be deleted by hand).
 
 # Cloudflare Tunnel
 

@@ -21,23 +21,22 @@ The backend runs on a Raspberry (real hardware) **or on any machine with simulat
 
 ```bash
 # any machine (macOS / Linux / Windows), simulated hardware
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements-dev.txt
+scripts/setup_venv.sh --dev && source .venv/bin/activate   # = python3 -m venv .venv + pip install -r requirements-dev.txt
 python scripts/dev_setup.py        # creates .dev-data/: RS256 keys, users.json (demo/demo), alarms.json, greetings.json
 python main.py --fake              # FastAPI+Socket.IO on :8080 (PORT env to change); /docs is the Swagger UI; CORS also allows http://localhost:4200
 python -m pytest                   # tests run against the simulated hardware (add --cov=app for coverage)
 ruff check . && ruff format .
 
 # Raspberry Pi
-pip install -r requirements-raspberry.txt
-python main.py                     # DO NOT enable reload (starts the hardware twice, breaks GPIO).
+scripts/setup_venv.sh              # .venv + requirements-raspberry.txt
+.venv/bin/python main.py                     # DO NOT enable reload (starts the hardware twice, breaks GPIO).
 ```
 
 - The Raspberry-only libraries (`gpiozero`, `RPLCD`, `rpi_hardware_pwm`, `bleak`, ...) are listed only in `requirements-raspberry.txt` and imported only by `app/hardware/raspberry.py`. Never import them elsewhere – that would break fake mode and CI.
 - Data directory (`DATA_DIR` env): `resources/` on the Pi, `.dev-data/` (gitignored) in fake mode, so local runs never touch tracked files.
 - The frontend can be pointed at a fake-mode backend with its `mock` Angular configuration (`localhost:8080`).
 - CI (`.github/workflows/ci.yml`): ruff + pytest with a coverage report on Ubuntu with the core requirements only. Dependabot proposes weekly dependency updates (pip, Actions).
-- Deploy: the backend runs as the `raspberry-spy` systemd service (`configs/raspberry-spy.service`, installed once with `scripts/install_service.sh`). Update with `scripts/deploy.sh` on the Pi (`git pull --ff-only`, `pip install -r requirements-raspberry.txt` when the requirements changed, `systemctl restart`, waits for `/health`; it prints a reminder when `configs/default` changed). The checkout must contain `resources/users.json` and the keys, or set `DATA_DIR`. nginx/MediaMTX configs are copied by hand (`configs/default` to `/etc/nginx/sites-available/default`, `configs/mediamtx.yml` to `/mediamtx/mediamtx.yml`); logs: `journalctl -u raspberry-spy -f`.
+- Deploy: the backend runs as the `raspberry-spy` systemd service (`configs/raspberry-spy.service`, installed once with `scripts/install_service.sh`). Update with `scripts/deploy.sh` on the Pi (`git pull --ff-only`, `pip install -r requirements-raspberry.txt` when the requirements changed, `systemctl restart`, waits for `/health`; it prints a reminder when `configs/default` changed). The checkout must contain `resources/users.json` and the keys, or set `DATA_DIR`. nginx/MediaMTX configs are copied by hand (`configs/default` to `/etc/nginx/sites-available/default`, `configs/mediamtx.yml` to `/mediamtx/mediamtx.yml`); logs: `journalctl -u raspberry-spy -f`. MediaMTX is a service too (`configs/mediamtx.service`, `scripts/install_mediamtx_service.sh`; `journalctl -u mediamtx -f`).
 
 ## FastAPI
 
@@ -96,7 +95,7 @@ configs/                    # nginx, MediaMTX, setup docs
 - Socket.IO sessions stay connected after their JWT expires (the `message` handler then disconnects them) and still receive the 5 s stats broadcast until the client disconnects.
 - The ACT LED is controlled with `os.system('... sudo tee ...')` in `app/hardware/raspberry.py`; the backend must run with passwordless sudo for that to work.
 - Singletons are still created at import time (through `get_hardware()`); a full dependency-injection container is a possible follow-up (BACKLOG E4).
-- The checked-in venv (`bin/`, `lib64`, `pyvenv.cfg`) is Python 3.11 while `pyproject.toml` targets py313; CI uses 3.11.
+- Python 3.11 everywhere (Raspberry Pi OS, CI, `pyproject.toml` target). The virtualenv is `.venv` (`scripts/setup_venv.sh`, gitignored). A legacy virtualenv is still tracked in git (`bin/`, `lib64`, `pyvenv.cfg`) until the Pi has moved to `.venv` (migration steps in `configs/CONFIGS.MD`); do not use it and do not add files to it.
 - Rate-limit counters live in memory (one uvicorn process): they reset on restart and are keyed by the `CF-Connecting-IP` header, which someone with direct access to nginx/Flask on the home network could forge. A Cloudflare rate-limiting rule in front of the tunnel is the second layer (see `configs/CONFIGS.MD`).
 - Tokens last 30 minutes and cannot be refreshed; Socket.IO sessions are only checked for expiry when a message arrives.
 - Adding a user: `python scripts/manage_users.py add <name>` on the Pi (minimum 10 characters); no restart needed, `users.json` is read on every login.

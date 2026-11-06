@@ -48,13 +48,12 @@ A custom-made 3D printed frame with a tall camera stand. See it in [Makerworld](
 The hardware (servos, LCD, buzzer, BLE sensor, ...) is simulated, so the backend runs on any machine:
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements-dev.txt
+scripts/setup_venv.sh --dev && source .venv/bin/activate   # python3 -m venv .venv + pip install -r requirements-dev.txt
 python scripts/dev_setup.py   # keys, demo/demo user, alarms
 python main.py --fake
 ```
 
-On the Raspberry use `pip install -r requirements-raspberry.txt` and `python main.py`; for production run it as a systemd service (`scripts/install_service.sh`, updates with `scripts/deploy.sh`, see `configs/CONFIGS.MD`).
+On the Raspberry use `scripts/setup_venv.sh` (installs `requirements-raspberry.txt` into `.venv`) and `python main.py`; for production run it as a systemd service (`scripts/install_service.sh`, updates with `scripts/deploy.sh`, see `configs/CONFIGS.MD`).
 
 ### Gallery 
 <img src="img/img_all.jpg"/>
