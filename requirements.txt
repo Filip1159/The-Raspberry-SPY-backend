@@ -9,6 +9,6 @@ cryptography==46.0.3
 jwcrypto==1.5.6
 limits==5.8.0
 psutil==7.2.1
-websockets>=13
+websockets>=17.4
 # only for password hashing (werkzeug.security) in app/users.py; existing users.json hashes use its format
 Werkzeug==3.0.4
