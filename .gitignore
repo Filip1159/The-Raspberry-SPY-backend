@@ -17,4 +17,5 @@ resources/users.json
 .coverage
 htmlcov/
 resources/refresh_tokens.json
-resources/camera.json
+resources/alarms.json
+resources/greetings.json
