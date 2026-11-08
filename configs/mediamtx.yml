@@ -333,7 +333,8 @@ hlsAllowOrigin: 'https://filipwisniewski.pl'
 hlsTrustedProxies: []
 # By default, HLS is generated only when requested by a user.
 # This option allows to generate it always, avoiding the delay between request and generation.
-hlsAlwaysRemux: yes
+# `no` because an always-running muxer is a reader of the path and would keep the on-demand camera of cam1 running all the time.
+hlsAlwaysRemux: no
 # Variant of the HLS protocol to use. Available options are:
 # * mpegts - uses MPEG-TS segments, for maximum compatibility.
 # * fmp4 - uses fragmented MP4 segments, more efficient.
@@ -364,7 +365,7 @@ hlsSegmentMaxSize: 50M
 hlsDirectory: ''
 # The muxer will be closed when there are no
 # reader requests and this amount of time has passed.
-hlsMuxerCloseAfter: 60s
+hlsMuxerCloseAfter: 15s
 
 ###############################################
 # Global settings -> WebRTC server
@@ -780,6 +781,11 @@ paths:
     # These are the starting values (keep them equal to DEFAULTS in the backend's app/camera_settings.py): the backend patches the
     # settings saved from the UI into the running MediaMTX (PATCH /v3/config/paths/patch/cam1) and again after every MediaMTX restart.
     source: rpiCamera
+    # The camera and the encoder only run while somebody watches: the first request waits until the camera is up (a few seconds,
+    # the UI shows "connecting"), and the camera stops 10 s after the HLS muxer closed (hlsMuxerCloseAfter) when the viewer left.
+    sourceOnDemand: yes
+    sourceOnDemandStartTimeout: 15s
+    sourceOnDemandCloseAfter: 10s
     rpiCameraWidth: 1280
     rpiCameraHeight: 720
     rpiCameraFPS: 30

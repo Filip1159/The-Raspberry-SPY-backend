@@ -143,6 +143,15 @@ def test_mediamtx_yml_starts_with_the_default_settings():
     assert re.search(r'^    source: rpiCamera$', cam1, re.MULTILINE)
 
 
+def test_the_camera_runs_only_while_somebody_watches():
+    config = (BASE_DIR / 'configs' / 'mediamtx.yml').read_text()
+    cam1 = config.split('\n  cam1:\n')[1]
+
+    assert re.search(r'^    sourceOnDemand: yes$', cam1, re.MULTILINE)
+    # an always-running HLS muxer is a reader of the path: it would keep the camera on
+    assert re.search(r'^hlsAlwaysRemux: no$', config, re.MULTILINE)
+
+
 # ---- storage ----
 
 
