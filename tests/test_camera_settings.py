@@ -129,6 +129,11 @@ def test_mediamtx_parameters():
     assert parameters['rpiCameraAWB'] == 'daylight'
 
 
+@pytest.mark.parametrize('fps,keyframe_every', [(30, 15), (25, 12), (10, 5), (5, 2)])
+def test_a_keyframe_comes_every_half_second_at_any_frame_rate(fps, keyframe_every):
+    assert to_mediamtx(changed(fps=fps))['rpiCameraIDRPeriod'] == keyframe_every
+
+
 def test_mediamtx_yml_starts_with_the_default_settings():
     cam1 = (BASE_DIR / 'configs' / 'mediamtx.yml').read_text().split('\n  cam1:\n')[1]
     in_file = {key: value.strip() for key, value in re.findall(r'^    (rpiCamera\w+): (.+)$', cam1, re.MULTILINE)}

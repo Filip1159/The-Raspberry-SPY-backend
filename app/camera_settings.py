@@ -83,6 +83,8 @@ def to_mediamtx(settings: dict) -> dict:
         'rpiCameraWidth': width,
         'rpiCameraHeight': height,
         'rpiCameraFPS': settings['fps'],
+        # A keyframe every half second: HLS segments can only start at keyframes, so this bounds the latency of the stream
+        'rpiCameraIDRPeriod': max(1, settings['fps'] // 2),
         'rpiCameraBitrate': settings['bitrate'] * 1000,
         'rpiCameraHFlip': settings['hFlip'],
         'rpiCameraVFlip': settings['vFlip'],
