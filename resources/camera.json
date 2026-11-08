@@ -1,0 +1,13 @@
+{
+  "resolution": "640x360",
+  "fps": 30,
+  "bitrate": 4000,
+  "hFlip": false,
+  "vFlip": false,
+  "brightness": 0,
+  "contrast": 1,
+  "saturation": 1,
+  "sharpness": 1,
+  "exposure": "normal",
+  "awb": "auto"
+}

@@ -1,0 +1,41 @@
+root@raspberrypi:/home/fwisn/Documents/The-Raspberry-SPY-backend# journalctl  -u mediamtx -n 40 --no-pager
+Nov 08 19:28:10 raspberrypi mediamtx[73990]: 2026/11/08 19:28:10 DEB [path cam1] created
+Nov 08 19:28:10 raspberrypi mediamtx[73990]: 2026/11/08 19:28:10 DEB path manager created
+Nov 08 19:28:10 raspberrypi mediamtx[73990]: 2026/11/08 19:28:10 ERR listen udp :8000: bind: address already in use
+Nov 08 19:28:10 raspberrypi mediamtx[73990]: 2026/11/08 19:28:10 DEB path manager is shutting down
+Nov 08 19:28:10 raspberrypi mediamtx[73990]: 2026/11/08 19:28:10 INF [path cam1] [RPI Camera source] started
+Nov 08 19:28:10 raspberrypi mediamtx[73990]: 2026/11/08 19:28:10 INF [path cam1] [RPI Camera source] stopped: path is closing
+Nov 08 19:28:10 raspberrypi mediamtx[73990]: 2026/11/08 19:28:10 DEB [path cam1] destroyed: terminated
+Nov 08 19:28:10 raspberrypi mediamtx[73990]: 2026/11/08 19:28:10 INF waiting for running hooks
+Nov 08 19:28:10 raspberrypi systemd[1]: mediamtx.service: Main process exited, code=exited, status=1/FAILURE
+Nov 08 19:28:10 raspberrypi systemd[1]: mediamtx.service: Failed with result 'exit-code'.
+Nov 08 19:28:15 raspberrypi systemd[1]: mediamtx.service: Scheduled restart job, restart counter is at 1504.
+Nov 08 19:28:15 raspberrypi systemd[1]: Stopped mediamtx.service - MediaMTX (camera stream, HLS on :8888).
+Nov 08 19:28:15 raspberrypi systemd[1]: Started mediamtx.service - MediaMTX (camera stream, HLS on :8888).
+Nov 08 19:28:15 raspberrypi mediamtx[74010]: 2026/11/08 19:28:15 INF MediaMTX v1.15.3
+Nov 08 19:28:15 raspberrypi mediamtx[74010]: 2026/11/08 19:28:15 INF configuration loaded from /mediamtx/mediamtx.yml
+Nov 08 19:28:15 raspberrypi mediamtx[74010]: 2026/11/08 19:28:15 DEB [path cam1] created
+Nov 08 19:28:15 raspberrypi mediamtx[74010]: 2026/11/08 19:28:15 DEB path manager created
+Nov 08 19:28:15 raspberrypi mediamtx[74010]: 2026/11/08 19:28:15 ERR listen udp :8000: bind: address already in use
+Nov 08 19:28:15 raspberrypi mediamtx[74010]: 2026/11/08 19:28:15 DEB path manager is shutting down
+Nov 08 19:28:15 raspberrypi mediamtx[74010]: 2026/11/08 19:28:15 INF [path cam1] [RPI Camera source] started
+Nov 08 19:28:15 raspberrypi mediamtx[74010]: 2026/11/08 19:28:15 INF [path cam1] [RPI Camera source] stopped: path is closing
+Nov 08 19:28:15 raspberrypi mediamtx[74010]: 2026/11/08 19:28:15 DEB [path cam1] destroyed: terminated
+Nov 08 19:28:15 raspberrypi mediamtx[74010]: 2026/11/08 19:28:15 INF waiting for running hooks
+Nov 08 19:28:15 raspberrypi systemd[1]: mediamtx.service: Main process exited, code=exited, status=1/FAILURE
+Nov 08 19:28:15 raspberrypi systemd[1]: mediamtx.service: Failed with result 'exit-code'.
+Nov 08 19:28:20 raspberrypi systemd[1]: mediamtx.service: Scheduled restart job, restart counter is at 1505.
+Nov 08 19:28:20 raspberrypi systemd[1]: Stopped mediamtx.service - MediaMTX (camera stream, HLS on :8888).
+Nov 08 19:28:20 raspberrypi systemd[1]: Started mediamtx.service - MediaMTX (camera stream, HLS on :8888).
+Nov 08 19:28:20 raspberrypi mediamtx[74030]: 2026/11/08 19:28:20 INF MediaMTX v1.15.3
+Nov 08 19:28:20 raspberrypi mediamtx[74030]: 2026/11/08 19:28:20 INF configuration loaded from /mediamtx/mediamtx.yml
+Nov 08 19:28:20 raspberrypi mediamtx[74030]: 2026/11/08 19:28:20 DEB [path cam1] created
+Nov 08 19:28:20 raspberrypi mediamtx[74030]: 2026/11/08 19:28:20 DEB path manager created
+Nov 08 19:28:20 raspberrypi mediamtx[74030]: 2026/11/08 19:28:20 INF [path cam1] [RPI Camera source] started
+Nov 08 19:28:20 raspberrypi mediamtx[74030]: 2026/11/08 19:28:20 ERR listen udp :8000: bind: address already in use
+Nov 08 19:28:20 raspberrypi mediamtx[74030]: 2026/11/08 19:28:20 DEB path manager is shutting down
+Nov 08 19:28:20 raspberrypi mediamtx[74030]: 2026/11/08 19:28:20 INF [path cam1] [RPI Camera source] stopped: path is closing
+Nov 08 19:28:20 raspberrypi mediamtx[74030]: 2026/11/08 19:28:20 DEB [path cam1] destroyed: terminated
+Nov 08 19:28:20 raspberrypi mediamtx[74030]: 2026/11/08 19:28:20 INF waiting for running hooks
+Nov 08 19:28:20 raspberrypi systemd[1]: mediamtx.service: Main process exited, code=exited, status=1/FAILURE
+Nov 08 19:28:20 raspberrypi systemd[1]: mediamtx.service: Failed with result 'exit-code'.
