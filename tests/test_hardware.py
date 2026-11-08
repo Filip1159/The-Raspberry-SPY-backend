@@ -37,7 +37,7 @@ def test_lcd_shows_the_menu():
     )
 
     navigation.loop()
-    assert hardware.lcd.lines()[0].startswith('Hello Raspberry! V2')
+    assert hardware.lcd.lines()[0].startswith('Hello Raspberry!')
 
     hardware.button.press()
     navigation.loop()

@@ -282,6 +282,35 @@ def test_invalid_settings_answer_400_and_are_not_saved(client, auth_headers, sav
     assert client.get('/camera/settings', headers=auth_headers).json()['settings'] == DEFAULTS
 
 
+def test_applied_settings_make_every_viewer_reconnect(client, auth_headers, saved_settings, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from app.api.routers import camera as camera_router
+
+    emit = AsyncMock()
+    monkeypatch.setattr(camera_router.sio, 'emit', emit)
+
+    client.put('/camera/settings', json=changed(fps=20), headers=auth_headers)
+
+    emit.assert_awaited_once_with('camera_stream_restart', {'reason': 'settings'})
+
+
+def test_settings_that_were_not_applied_do_not_restart_the_viewers(client, auth_headers, saved_settings, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from app.api.routers import camera as camera_router
+    from app.services import get_services
+
+    emit = AsyncMock()
+    monkeypatch.setattr(camera_router.sio, 'emit', emit)
+    monkeypatch.setattr(get_services().camera_settings, 'apply', lambda _settings: False)
+
+    response = client.put('/camera/settings', json=changed(fps=20), headers=auth_headers)
+
+    assert response.json()['applied'] is False
+    emit.assert_not_awaited()
+
+
 def test_settings_changes_are_rate_limited(client, auth_headers, saved_settings):
     statuses = [
         client.put('/camera/settings', json=DEFAULTS, headers={**auth_headers, 'CF-Connecting-IP': '10.9.9.9'}).status_code

@@ -5,8 +5,11 @@ from app.api.errors import bad_request
 from app.api.rate_limit import camera_limit
 from app.api.request_body import read_json_body
 from app.api.security import current_user
+from app.api.sockets import sio
 from app.camera_settings import DEFAULTS, validate_camera_settings
 from app.services import get_services
+
+STREAM_RESTART_EVENT = 'camera_stream_restart'
 
 router = APIRouter(prefix='/camera', dependencies=[Depends(current_user)])
 
@@ -42,4 +45,8 @@ async def set_settings(request: Request):
         camera_settings.save(data)
         return _view(data, camera_settings.apply(data))
 
-    return await run_in_threadpool(save)
+    view = await run_in_threadpool(save)
+    if view['applied']:
+        # The stream restarts: every open viewer (not only this client) has to reconnect
+        await sio.emit(STREAM_RESTART_EVENT, {'reason': 'settings'})
+    return view

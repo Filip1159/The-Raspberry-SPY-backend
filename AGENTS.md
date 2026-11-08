@@ -70,7 +70,7 @@ app/allowed_origins.py      # CORS/Socket.IO origin allow-list (+ EXTRA_ALLOWED_
 app/api/                    # the FastAPI app (see above): main.py (app, lifespan, CORS, body limit), security.py, rate_limit.py (CF-Connecting-IP key), errors.py, sockets.py, routers/
   routers/auth.py           # POST /login (users.json, hashed passwords, only failed attempts count: 5/min and 20/h per visitor), GET /.well-known/jwks.json; token: 30 min, claims sub + mediamtx_permissions; POST /stream-token (JWT required, 20/min): a 2 minute token with only `read cam1` and `scope: stream` for the video URLs, which `decode_token` refuses for the API and the socket (the UI renews it while the stream plays)
   routers/alarms.py         # GET/POST /alarms (POST reloads the scheduler), POST /alarms/play (melody validated); JWT required
-  routers/camera.py         # GET/PUT /camera/settings (JWT required, PUT 10/min): stream settings from the UI -> `app/camera_settings.py`
+  routers/camera.py         # GET/PUT /camera/settings (JWT required, PUT 10/min): stream settings from the UI -> `app/camera_settings.py`; an applied PUT broadcasts the socket event `camera_stream_restart` `{reason: 'settings'}` so every open viewer reconnects
   routers/stats.py          # GET /stats/history (JWT required): the last 120 broadcast samples (10 min, in memory, `app/stats_history.py`), oldest first
   routers/greetings.py      # POST /greetings (public, max 500 chars, 3/min and 20/h per visitor, last 1000 kept), GET /greetings (JWT required)
   routers/health.py         # GET /health (public liveness probe, used by the frontend's offline detection)

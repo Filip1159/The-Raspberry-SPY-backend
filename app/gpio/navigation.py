@@ -117,7 +117,7 @@ class Navigation:
 
     def __hello_content(self):
         return [
-            {'template': 'Hello Raspberry! V2', 'args': [], 'action': lambda: self.__set_active_view('menu')},
+            {'template': 'Hello Raspberry!', 'args': [], 'action': lambda: self.__set_active_view('menu')},
             {'template': '{}', 'args': [datetime.now().strftime('%d %b, %H:%M:%S')], 'action': lambda: self.__set_active_view('menu')},
         ]
 
