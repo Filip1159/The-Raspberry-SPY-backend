@@ -133,8 +133,10 @@ authJWTJWKSFingerprint:
 authJWTClaimKey: mediamtx_permissions
 # Actions to exclude from JWT-based authentication.
 # Format is the same as the one of user permissions.
+# api: the Control API below only listens on localhost (the backend patches the camera settings through it), so it needs no JWT.
 authJWTExclude: 
   - action: publish
+  - action: api
 # allow passing the JWT through query parameters of HTTP requests (i.e. ?jwt=JWT).
 # This is a security risk and will be disabled by default in the future.
 authJWTInHTTPQuery: true
@@ -143,9 +145,10 @@ authJWTInHTTPQuery: true
 # Global settings -> Control API
 
 # Enable controlling the server through the Control API.
-api: no
+# The backend (app/camera_settings.py) uses it to apply the camera settings chosen in the UI. Keep it on localhost: it is not authenticated.
+api: yes
 # Address of the Control API listener.
-apiAddress: :9997
+apiAddress: 127.0.0.1:9997
 # Enable TLS/HTTPS on the Control API server.
 apiEncryption: no
 # Path to the server key. This is needed only when encryption is yes.
@@ -772,5 +775,19 @@ paths:
   # Settings under path "all_others" are applied to all paths that
   # do not match another entry.
   cam1:
-    runOnInit: bash -c 'rpicam-vid -t 0 --camera 0 --nopreview --codec yuv420 --width 1280 --height 720 --inline --listen -o - | ffmpeg -f rawvideo -pix_fmt yuv420p -s:v 1280x720 -i /dev/stdin -c:v libx264 -preset ultrafast -tune zerolatency -f rtsp rtsp://localhost:8554/cam1'
-    runOnInitRestart: yes
+    # The Raspberry Pi camera is read by MediaMTX itself (no rpicam-vid | ffmpeg pipeline), so the stream can be tuned at runtime.
+    # These are the starting values (keep them equal to DEFAULTS in the backend's app/camera_settings.py): the backend patches the
+    # settings saved from the UI into the running MediaMTX (PATCH /v3/config/paths/patch/cam1) and again after every MediaMTX restart.
+    source: rpiCamera
+    rpiCameraWidth: 1280
+    rpiCameraHeight: 720
+    rpiCameraFPS: 30
+    rpiCameraBitrate: 4000000
+    rpiCameraHFlip: false
+    rpiCameraVFlip: false
+    rpiCameraBrightness: 0
+    rpiCameraContrast: 1
+    rpiCameraSaturation: 1
+    rpiCameraSharpness: 1
+    rpiCameraExposure: normal
+    rpiCameraAWB: auto

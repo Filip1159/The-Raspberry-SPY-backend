@@ -12,7 +12,7 @@ browser ──HTTPS──> Cloudflare ──tunnel──> cloudflared ──> ng
 
 - Public hostname `api.filipwisniewski.pl` (Cloudflare Tunnel configured in the Cloudflare dashboard, no config file on the Pi). Setup notes: `configs/CONFIGS.MD`.
 - nginx (`configs/default`) only proxies; it does not serve the frontend or add CORS headers.
-- MediaMTX (`configs/mediamtx.yml`, v1.15.3) captures the camera with `rpicam-vid | ffmpeg` into path `cam1`, serves HLS, and authenticates readers with a JWT (`?jwt=` query) verified against the backend's `/.well-known/jwks.json` (`mediamtx_permissions` claim).
+- MediaMTX (`configs/mediamtx.yml`, v1.15.3) reads the camera itself (`source: rpiCamera` on path `cam1`, no `rpicam-vid | ffmpeg` pipeline), serves HLS, and authenticates readers with a JWT (`?jwt=` query) verified against the backend's `/.well-known/jwks.json` (`mediamtx_permissions` claim).
 - Port `8765` can run a plain `websockets` server for an Arduino Uno R4 (`app/websocket_manager.py`, experimental, **off** unless `ARDUINO_WEBSOCKET=1`, no authentication; it logs messages and `send()` works).
 
 ## Run / develop
@@ -70,11 +70,13 @@ app/allowed_origins.py      # CORS/Socket.IO origin allow-list (+ EXTRA_ALLOWED_
 app/api/                    # the FastAPI app (see above): main.py (app, lifespan, CORS, body limit), security.py, rate_limit.py (CF-Connecting-IP key), errors.py, sockets.py, routers/
   routers/auth.py           # POST /login (users.json, hashed passwords, only failed attempts count: 5/min and 20/h per visitor), GET /.well-known/jwks.json; token: 30 min, claims sub + mediamtx_permissions
   routers/alarms.py         # GET/POST /alarms (POST reloads the scheduler), POST /alarms/play (melody validated); JWT required
+  routers/camera.py         # GET/PUT /camera/settings (JWT required, PUT 10/min): stream settings from the UI -> `app/camera_settings.py`
   routers/stats.py          # GET /stats/history (JWT required): the last 120 broadcast samples (10 min, in memory, `app/stats_history.py`), oldest first
   routers/greetings.py      # POST /greetings (public, max 500 chars, 3/min and 20/h per visitor, last 1000 kept), GET /greetings (JWT required)
   routers/health.py         # GET /health (public liveness probe, used by the frontend's offline detection)
   sockets.py                # Socket.IO: JWT required in handshake `auth.token` (else refused as 'unauthorized'); 'message' -> servo direction name or 'LED<0-255>'
 app/validation.py           # request validation shared by the routers
+app/camera_settings.py     # camera stream settings: allowlist + ranges (validate_camera_settings), camera.json (DATA_DIR, gitignored), mapping to the rpiCamera* path parameters and `PATCH /v3/config/paths/patch/cam1` on the MediaMTX Control API (127.0.0.1:9997, enabled in mediamtx.yml, unauthenticated because it is localhost-only). A patch restarts the stream (a few seconds). MediaMTX forgets patched values when it restarts, so the lifespan runs `sync()` every 30 s (patches only when the running values differ). Fake mode has no MediaMTX (`MEDIAMTX_API_URL` empty): settings are just stored, `applied` is true. The cam1 values in mediamtx.yml must equal DEFAULTS (a test checks it)
 app/alarm_manager.py        # background thread waits for the next ENABLED weekly alarm (none enabled = no thread), plays the melody; alarms.json is source of truth. `reload()` serializes on `__reload_lock` and joins the old thread without holding `__lock` (the thread needs it after every alarm: joining under it deadlocked)
 app/services.py            # get_services(): MelodyPlayer + AlarmManager + ServosController, created on first use
 app/climate.py             # parse_reading() (never raises, validates ranges), ClimateReadings (shared by the BLE and the fake sensor), `stale` after CLIMATE_STALE_SECONDS (default 300); `ble_update` carries `stale`

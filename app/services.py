@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from functools import cache
 
 from app.alarm_manager import AlarmManager
+from app.camera_settings import CameraSettings
 from app.gpio.servos_controller import ServosController
 from app.hardware import get_hardware
 from app.melody_player import MelodyPlayer
@@ -12,6 +13,7 @@ class Services:
     melody_player: MelodyPlayer
     alarm_manager: AlarmManager
     servos_controller: ServosController
+    camera_settings: CameraSettings
 
 
 @cache
@@ -24,4 +26,5 @@ def get_services() -> Services:
         melody_player=melody_player,
         alarm_manager=AlarmManager(melody_player),
         servos_controller=ServosController(hardware.vertical_servo, hardware.horizontal_servo),
+        camera_settings=CameraSettings(),
     )

@@ -14,12 +14,14 @@ sudo tar xzvf mediamtx_v1.15.3_linux_armv7.tar.gz
 
 Update the `mediamtx.yml` config file with the contents provided in this directory.
 
-Run `./mediamtx` once by hand to check that there are no warnings in the logs, then stop it and run it as a service (it starts on boot and restarts after a crash; the `rpicam-vid | ffmpeg` pipeline of the `cam1` path stops and starts with it):
+Run `./mediamtx` once by hand to check that there are no warnings in the logs, then stop it and run it as a service (it starts on boot and restarts after a crash):
 
 ```bash
 scripts/install_mediamtx_service.sh   # from the backend checkout: copies configs/mediamtx.yml to /mediamtx, installs and starts the unit
 journalctl -u mediamtx -f             # logs
 ```
+
+The `cam1` path uses MediaMTX's own `rpiCamera` source (no `rpicam-vid | ffmpeg` pipeline; nothing else may hold the camera, so stop any leftover `rpicam-vid`). The stream settings of the UI (resolution, FPS, bitrate, flips, brightness, contrast, saturation, sharpness, exposure, white balance) are saved by the backend in `camera.json` and patched into the running MediaMTX through its Control API, which listens on `127.0.0.1:9997` only (`api: yes`, excluded from JWT authentication because of that: never expose or proxy this port). A patch restarts the stream for a few seconds; the backend re-applies the saved values every 30 s when MediaMTX was restarted. `MEDIAMTX_API_URL` overrides the API address (empty = only store the settings, the default in fake mode).
 
 After a change of `configs/mediamtx.yml` `scripts/deploy.sh` copies it to `/mediamtx` and restarts MediaMTX by itself. Run `install_mediamtx_service.sh` only when `configs/mediamtx.service` changed.
 
@@ -66,12 +68,25 @@ The `deploy` job in `.github/workflows/ci.yml` runs `scripts/deploy.sh` on the P
 
 Setup, once:
 
-1. Repo -> Settings -> Actions -> Runners -> New self-hosted runner (Linux, ARM64). Follow the commands on that page on the Pi as the user that owns the checkout, give it the extra label `raspberry-spy` (`./config.sh ... --labels raspberry-spy`), then `sudo ./svc.sh install && sudo ./svc.sh start`.
+1. Repo -> Settings -> Actions -> Runners -> New self-hosted runner (Linux, ARM64). Follow the commands on that page on the Pi **as the user that owns the checkout, without sudo** (`config.sh` refuses to run as root and needs a runner folder owned by that user). Give the runner the extra label `raspberry-spy` (`./config.sh ... --labels raspberry-spy`), then install it as a service that runs as the same user: `sudo ./svc.sh install <user> && sudo ./svc.sh start`. The runner must show as Idle.
 2. Repo -> Settings -> Secrets and variables -> Actions -> Variables: `BACKEND_DIR` = absolute path of the checkout on the Pi.
 3. The runner user needs passwordless sudo for `systemctl restart raspberry-spy.service` / `mediamtx.service`, `systemctl reload nginx`, `nginx -t` and `cp` to the two config files (the default Raspberry Pi OS user has it already).
 4. Repo -> Settings -> Actions -> General: "Require approval for all outside collaborators" for workflows from forks. The runner executes workflow code on the Pi, so never run it for pull requests.
 
 If nginx rejects a changed `configs/default`, the old file is restored and the job fails before the backend restarts. There is no automatic rollback otherwise: fix forward or `git reset --hard <sha>` on the Pi and run `scripts/deploy.sh` (it then does not see a diff, so restart services by hand if configs changed).
+
+Troubleshooting the `deploy` job:
+
+| Message | Cause and fix |
+| --- | --- |
+| `Must not run with sudo` (`config.sh`) | Run it as the normal user, not with `sudo` or from a root shell. |
+| `touch: cannot touch '.env': Permission denied` | The runner folder is owned by root: `sudo chown -R $USER:$USER ~/actions-runner`. |
+| `fatal: detected dubious ownership in repository` | The runner service runs as a different user than the checkout's owner. Reinstall it with `sudo ./svc.sh uninstall && sudo ./svc.sh install <owner>` and start it. |
+| `cannot open '.git/FETCH_HEAD': Permission denied` | Root-owned files in the checkout, usually from a `sudo git pull`: `sudo chown -R <owner>:<owner> <checkout>`. Never run `git pull` or `scripts/deploy.sh` with `sudo`. |
+| Job stays queued | The runner is offline (Pi off, `sudo systemctl status actions.runner.*`) or its label is not `raspberry-spy`. |
+| `cd` fails in the first step | The `BACKEND_DIR` variable is missing or wrong. |
+| `sudo: a password is required` | Add a sudoers rule for the runner user (see step 3). |
+
 
 ## Old committed virtualenv
 

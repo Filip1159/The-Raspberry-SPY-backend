@@ -53,7 +53,7 @@ python scripts/dev_setup.py   # keys, demo/demo user, alarms
 python main.py --fake
 ```
 
-On the Raspberry use `scripts/setup_venv.sh` (installs `requirements-raspberry.txt` into `.venv`) and `python main.py`; for production run it as a systemd service (`scripts/install_service.sh`, updates with `scripts/deploy.sh`, see `configs/CONFIGS.MD`).
+On the Raspberry use `scripts/setup_venv.sh` (installs `requirements-raspberry.txt` into `.venv`) and `python main.py`; for production run it as a systemd service (`scripts/install_service.sh`, updates with `scripts/deploy.sh`, which the `deploy` job of the CI pipeline runs automatically on every push to `master` through a self-hosted runner on the Pi; setup and troubleshooting in `configs/CONFIGS.MD`).
 
 ### Gallery 
 <img src="img/img_all.jpg"/>

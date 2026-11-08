@@ -58,3 +58,5 @@ login_limit = RateLimit('login', '5 per minute;20 per hour')
 greetings_limit = RateLimit('greetings', '3 per minute;20 per hour')
 # The UI refreshes once per ~30 minutes per tab; this only stops somebody hammering the endpoint with guessed cookies
 refresh_limit = RateLimit('refresh', '30 per minute')
+# Every change restarts the camera stream for a few seconds
+camera_limit = RateLimit('camera', '10 per minute')

@@ -49,3 +49,9 @@ API_DOCS_ENABLED = environ.get('API_DOCS', '1' if HARDWARE_MODE == 'fake' else '
 REFRESH_TOKEN_DAYS = int(environ.get('REFRESH_TOKEN_DAYS', 7))
 # The cookie is only sent over HTTPS (Cloudflare terminates TLS); plain http is for local development
 COOKIE_SECURE = environ.get('COOKIE_SECURE', '0' if HARDWARE_MODE == 'fake' else '1') == '1'
+
+# Camera stream settings chosen in the UI. They are applied to MediaMTX through its API, which listens on localhost only
+# (`apiAddress` in configs/mediamtx.yml). Fake mode has no MediaMTX: the settings are only stored (set MEDIAMTX_API_URL to try it).
+CAMERA_SETTINGS_FILE = DATA_DIR / 'camera.json'
+MEDIAMTX_API_URL = environ.get('MEDIAMTX_API_URL', '' if HARDWARE_MODE == 'fake' else 'http://127.0.0.1:9997').rstrip('/')
+MEDIAMTX_CAMERA_PATH = 'cam1'

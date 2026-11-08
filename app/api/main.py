@@ -4,11 +4,12 @@ from contextlib import asynccontextmanager
 
 import socketio
 from fastapi import FastAPI
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.allowed_origins import ALLOWED_ORIGINS
 from app.api.errors import ApiError, api_error_handler
-from app.api.routers import alarms, auth, greetings, health, stats
+from app.api.routers import alarms, auth, camera, greetings, health, stats
 from app.api.sockets import broadcast_stats_forever, sio
 from app.config import API_DOCS_ENABLED, USERS_FILE
 from app.hardware import get_hardware
@@ -18,6 +19,15 @@ from app.users import migrate_plaintext_passwords
 from app.websocket_manager import websocket_manager
 
 MAX_BODY_BYTES = 64 * 1024  # the API only receives small JSON bodies
+CAMERA_SYNC_SECONDS = 30
+
+
+async def keep_camera_settings_applied():
+    """MediaMTX forgets the settings patched in through its API when it restarts (and starts after this backend): put them back"""
+    camera_settings = get_services().camera_settings
+    while True:
+        await run_in_threadpool(camera_settings.sync)
+        await asyncio.sleep(CAMERA_SYNC_SECONDS)
 
 
 @asynccontextmanager
@@ -27,8 +37,10 @@ async def lifespan(_: FastAPI):
     websocket_manager.start()
     start_local_interface()
     stats_task = asyncio.create_task(broadcast_stats_forever())
+    camera_task = asyncio.create_task(keep_camera_settings_applied())
     yield
     stats_task.cancel()
+    camera_task.cancel()
 
 
 class BodyLimitMiddleware:
@@ -61,7 +73,7 @@ def create_app() -> FastAPI:
     api.add_middleware(BodyLimitMiddleware)
     # Added last = outermost: errors (429, 401, 413) must carry the CORS headers too, otherwise the browser cannot read them
     api.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS, allow_methods=['*'], allow_headers=['*'], allow_credentials=True)
-    for router in (alarms.router, auth.router, greetings.router, health.router, stats.router):
+    for router in (alarms.router, auth.router, camera.router, greetings.router, health.router, stats.router):
         api.include_router(router)
     return api
 
