@@ -19,6 +19,7 @@ logger = logging.getLogger('camera')
 
 RESOLUTIONS = {'1920x1080': (1920, 1080), '1280x720': (1280, 720), '854x480': (854, 480), '640x360': (640, 360)}
 EXPOSURES = ('normal', 'short', 'long')
+AF_MODES = ('continuous', 'manual')
 AWB_MODES = ('auto', 'incandescent', 'tungsten', 'fluorescent', 'indoor', 'daylight', 'cloudy')
 # Inclusive ranges of the numeric settings (bitrate in kbit/s)
 NUMBER_LIMITS = {
@@ -28,6 +29,8 @@ NUMBER_LIMITS = {
     'contrast': (0, 4),
     'saturation': (0, 4),
     'sharpness': (0, 8),
+    # Focus distance in dioptres (1 / metres), used with the manual focus: 0 is infinity, 1 is 1 m, 10 is 10 cm
+    'lensPosition': (0, 10),
 }
 INTEGER_SETTINGS = ('fps', 'bitrate')
 
@@ -44,6 +47,8 @@ DEFAULTS = {
     'sharpness': 1,
     'exposure': 'normal',
     'awb': 'auto',
+    'afMode': 'continuous',
+    'lensPosition': 0,
 }
 
 API_TIMEOUT_SECONDS = 3
@@ -73,6 +78,8 @@ def validate_camera_settings(data) -> str | None:
         return f'Invalid exposure (one of {", ".join(EXPOSURES)})'
     if data['awb'] not in AWB_MODES:
         return f'Invalid awb (one of {", ".join(AWB_MODES)})'
+    if data['afMode'] not in AF_MODES:
+        return f'Invalid afMode (one of {", ".join(AF_MODES)})'
     return None
 
 
@@ -94,6 +101,8 @@ def to_mediamtx(settings: dict) -> dict:
         'rpiCameraSharpness': settings['sharpness'],
         'rpiCameraExposure': settings['exposure'],
         'rpiCameraAWB': settings['awb'],
+        'rpiCameraAfMode': settings['afMode'],
+        'rpiCameraLensPosition': settings['lensPosition'],
     }
 
 

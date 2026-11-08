@@ -799,3 +799,5 @@ paths:
     rpiCameraSharpness: 1
     rpiCameraExposure: normal
     rpiCameraAWB: auto
+    rpiCameraAfMode: continuous
+    rpiCameraLensPosition: 0

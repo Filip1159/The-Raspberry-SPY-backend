@@ -93,6 +93,11 @@ def test_defaults_are_valid():
         changed(sharpness='high'),
         changed(exposure='custom'),
         changed(awb='custom'),
+        changed(afMode='auto'),
+        changed(afMode=1),
+        changed(lensPosition=-0.1),
+        changed(lensPosition=10.5),
+        changed(lensPosition='near'),
         {key: value for key, value in DEFAULTS.items() if key != 'fps'},
         {**DEFAULTS, 'runOnInit': 'rm -rf /'},
         [],
@@ -127,6 +132,13 @@ def test_mediamtx_parameters():
     assert parameters['rpiCameraBitrate'] == 2_500_000
     assert parameters['rpiCameraHFlip'] is True
     assert parameters['rpiCameraAWB'] == 'daylight'
+
+
+def test_manual_focus_parameters():
+    parameters = to_mediamtx(changed(afMode='manual', lensPosition=2.5))
+
+    assert parameters['rpiCameraAfMode'] == 'manual'
+    assert parameters['rpiCameraLensPosition'] == 2.5
 
 
 @pytest.mark.parametrize('fps,keyframe_every', [(30, 15), (25, 12), (10, 5), (5, 2)])
