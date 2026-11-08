@@ -87,3 +87,12 @@ Nov 08 19:35:28 raspberrypi mediamtx[77240]: 2026/11/08 19:35:28 ERR [path cam1]
 
 
 
+dpkg --print-architecture            # expect: arm64
+  cd /tmp
+  wget https://github.com/bluenviron/mediamtx/releases/download/v1.15.3/mediamtx_v1.15.3_linux_arm64.tar.gz
+  tar xzf mediamtx_v1.15.3_linux_arm64.tar.gz mediamtx     # only the program, not the yml
+  sudo systemctl stop mediamtx
+  sudo cp /mediamtx/mediamtx /mediamtx/mediamtx.armv7.bak
+  sudo cp mediamtx /mediamtx/mediamtx
+  sudo systemctl start mediamtx
+  journalctl -u mediamtx -n 30 --no-pager | grep -v "^\S* \S* \S* mediamtx\[[0-9]*\]: [A-Z][a-z-]*:"   # hides the HTTP header dump

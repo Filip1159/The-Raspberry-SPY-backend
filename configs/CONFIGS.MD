@@ -2,15 +2,19 @@
 
 Download the MediaMTX v1.15.3. The config file format may differ between versions, so let's stick to this one. All commands should be run at `/`
 
+Use the build that matches the operating system (`dpkg --print-architecture`): `arm64` for the 64-bit Raspberry Pi OS (the Pi 5 default), `armv7` only for a 32-bit one. MediaMTX's own camera source (`source: rpiCamera`, see below) refuses to start when the binary and the OS differ ("the operating system is 64-bit, you need the 64-bit server version").
+
 ```bash
-sudo wget https://github.com/bluenviron/mediamtx/releases/download/v1.15.3/mediamtx_v1.15.3_linux_armv7.tar.gz
+sudo wget https://github.com/bluenviron/mediamtx/releases/download/v1.15.3/mediamtx_v1.15.3_linux_arm64.tar.gz
 ```
 
 Extract files to `/mediamtx` directory
 
 ```bash
-sudo tar xzvf mediamtx_v1.15.3_linux_armv7.tar.gz
+sudo tar xzvf mediamtx_v1.15.3_linux_arm64.tar.gz
 ```
+
+To replace the binary of a running installation (keep the existing `mediamtx.yml`): extract only the program from the archive and restart the service, `cd /tmp && tar xzf mediamtx_v1.15.3_linux_arm64.tar.gz mediamtx && sudo systemctl stop mediamtx && sudo cp /mediamtx/mediamtx /mediamtx/mediamtx.old && sudo cp mediamtx /mediamtx/mediamtx && sudo systemctl start mediamtx`.
 
 Update the `mediamtx.yml` config file with the contents provided in this directory.
 
