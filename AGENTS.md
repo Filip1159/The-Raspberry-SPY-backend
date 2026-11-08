@@ -103,3 +103,4 @@ configs/                    # nginx, MediaMTX, setup docs
 - Rate-limit counters live in memory (one uvicorn process): they reset on restart and are keyed by the `CF-Connecting-IP` header, which someone with direct access to nginx/Flask on the home network could forge. A Cloudflare rate-limiting rule in front of the tunnel is the second layer (see `configs/CONFIGS.MD`).
 - Tokens last 30 minutes and cannot be refreshed; Socket.IO sessions are only checked for expiry when a message arrives.
 - Adding a user: `python scripts/manage_users.py add <name>` on the Pi (minimum 10 characters); no restart needed, `users.json` is read on every login.
+
