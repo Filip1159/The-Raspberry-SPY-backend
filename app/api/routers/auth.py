@@ -8,9 +8,9 @@ from jwcrypto import jwk
 
 from app import refresh_tokens
 from app.api.errors import ApiError
-from app.api.rate_limit import login_limit, refresh_limit
+from app.api.rate_limit import login_limit, refresh_limit, stream_token_limit
 from app.api.request_body import read_json_body
-from app.api.security import private_pem, public_pem
+from app.api.security import STREAM_SCOPE, current_user, private_pem, public_pem
 from app.config import COOKIE_SECURE, REFRESH_TOKEN_DAYS, USERS_FILE
 from app.users import load_users, verify_credentials
 
@@ -61,6 +61,14 @@ async def refresh(request: Request, response: Response):
     return prepare_token(username)
 
 
+@router.post('/stream-token')
+def stream_token(request: Request):
+    """A token for the video stream only (2 minutes): the UI renews it while the stream plays instead of putting the login token in URLs"""
+    claims = current_user(request)
+    stream_token_limit.limit_and_count(request)
+    return prepare_stream_token(claims['sub'])
+
+
 @router.post('/logout', status_code=204)
 async def logout(request: Request, response: Response):
     token = request.cookies.get(REFRESH_COOKIE)
@@ -83,11 +91,24 @@ def cookie_clearing_header() -> dict[str, str]:
     return {'Set-Cookie': f'{REFRESH_COOKIE}=""; Max-Age=0; Path=/; HttpOnly; SameSite=strict{secure}'}
 
 
-def prepare_token(username: str) -> dict:
+STREAM_TOKEN_SECONDS = 120
+
+
+def sign_token(username: str, lifetime: timedelta, permissions: list[dict], **claims) -> tuple[str, datetime]:
     now = datetime.now(UTC)
-    exp = now + timedelta(minutes=30)
-    permissions = [{'action': 'publish', 'path': 'cam1'}, {'action': 'read', 'path': 'cam1'}]
-    payload = {'sub': username, 'iat': int(now.timestamp()), 'exp': int(exp.timestamp()), 'mediamtx_permissions': permissions}
+    exp = now + lifetime
+    payload = {'sub': username, 'iat': int(now.timestamp()), 'exp': int(exp.timestamp()), 'mediamtx_permissions': permissions, **claims}
     headers = {'kid': kid, 'alg': 'RS256', 'typ': 'JWT'}
-    token = jwt.encode(payload, private_pem, algorithm='RS256', headers=headers)
+    return jwt.encode(payload, private_pem, algorithm='RS256', headers=headers), exp
+
+
+def prepare_token(username: str) -> dict:
+    permissions = [{'action': 'publish', 'path': 'cam1'}, {'action': 'read', 'path': 'cam1'}]
+    token, exp = sign_token(username, timedelta(minutes=30), permissions)
     return {'access_token': token, 'expires_at': exp.isoformat()}
+
+
+def prepare_stream_token(username: str) -> dict:
+    """Only MediaMTX accepts it (read cam1): it goes into URLs, so it is short-lived and `decode_token` refuses it for the API"""
+    token, exp = sign_token(username, timedelta(seconds=STREAM_TOKEN_SECONDS), [{'action': 'read', 'path': 'cam1'}], scope=STREAM_SCOPE)
+    return {'stream_token': token, 'expires_at': exp.isoformat()}

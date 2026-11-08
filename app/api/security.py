@@ -7,9 +7,16 @@ from app.secret_provider import get_keys
 private_pem, public_pem = get_keys()
 
 
+# Marks the short-lived tokens that only the video server may accept (they travel in URLs and logs)
+STREAM_SCOPE = 'stream'
+
+
 def decode_token(token: str) -> dict:
-    """Verifies signature (RS256, public key) and expiry. Raises jwt.PyJWTError."""
-    return jwt.decode(token, public_pem, algorithms=['RS256'], options={'require': ['exp']})
+    """Verifies signature (RS256, public key) and expiry. Raises jwt.PyJWTError. Stream tokens are not API tokens."""
+    claims = jwt.decode(token, public_pem, algorithms=['RS256'], options={'require': ['exp']})
+    if claims.get('scope') == STREAM_SCOPE:
+        raise jwt.InvalidTokenError('A stream token cannot be used for the API')
+    return claims
 
 
 def current_user(request: Request) -> dict:

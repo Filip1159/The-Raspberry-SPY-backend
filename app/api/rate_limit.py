@@ -60,3 +60,5 @@ greetings_limit = RateLimit('greetings', '3 per minute;20 per hour')
 refresh_limit = RateLimit('refresh', '30 per minute')
 # Every change restarts the camera stream for a few seconds
 camera_limit = RateLimit('camera', '10 per minute')
+# One renewal every ~70 s per open stream; this only stops somebody hammering the endpoint
+stream_token_limit = RateLimit('stream-token', '20 per minute')
