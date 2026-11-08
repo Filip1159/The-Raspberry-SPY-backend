@@ -20,3 +20,4 @@ resources/refresh_tokens.json
 resources/alarms.json
 resources/greetings.json
 resources/camera.json
+log.txt
