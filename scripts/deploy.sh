@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Updates the backend on the Raspberry: git pull, install changed dependencies, restart the service, check /health.
+# Updates the backend on the Raspberry: git pull, install changed dependencies, apply changed nginx/MediaMTX configs,
+# restart the service, check /health. Also run by the `deploy` job of .github/workflows/ci.yml (self-hosted runner).
 #   scripts/deploy.sh
 set -euo pipefail
 
@@ -17,11 +18,23 @@ if [ "$before" != "$after" ] && ! git diff --quiet "$before" "$after" -- require
 fi
 
 if [ "$before" != "$after" ] && ! git diff --quiet "$before" "$after" -- configs/default; then
-    echo "NOTE: configs/default (nginx) changed. Apply it: sudo cp configs/default /etc/nginx/sites-available/default && sudo nginx -t && sudo systemctl reload nginx"
+    echo "configs/default (nginx) changed, applying..."
+    NGINX_SITE=/etc/nginx/sites-available/default
+    sudo cp "$NGINX_SITE" "$NGINX_SITE.bak"
+    sudo cp configs/default "$NGINX_SITE"
+    if sudo nginx -t; then
+        sudo systemctl reload nginx
+    else
+        echo "nginx rejected the new config, restoring the previous one." >&2
+        sudo cp "$NGINX_SITE.bak" "$NGINX_SITE"
+        exit 1
+    fi
 fi
 
 if [ "$before" != "$after" ] && ! git diff --quiet "$before" "$after" -- configs/mediamtx.yml; then
-    echo "NOTE: configs/mediamtx.yml changed. Apply it: scripts/install_mediamtx_service.sh (copies the config and restarts MediaMTX)"
+    echo "configs/mediamtx.yml changed, applying (the stream restarts)..."
+    sudo cp configs/mediamtx.yml /mediamtx/mediamtx.yml
+    sudo systemctl restart mediamtx.service
 fi
 
 sudo systemctl restart raspberry-spy.service

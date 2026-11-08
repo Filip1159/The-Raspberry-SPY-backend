@@ -35,3 +35,18 @@ jobs:
 
       - name: Test (simulated hardware) with coverage
         run: python -m pytest --cov=app --cov-report=term-missing:skip-covered
+
+  deploy:
+    needs: lint-and-test
+    # only for pushes to master, never for PRs: the runner executes the workflow on the Raspberry
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: [self-hosted, raspberry-spy]
+    concurrency:
+      group: deploy-raspberry
+      cancel-in-progress: false
+    timeout-minutes: 10
+    steps:
+      # The runner's workspace is not the live checkout: deploy.sh updates that one with git pull --ff-only.
+      - name: Deploy on the Raspberry
+        working-directory: ${{ vars.BACKEND_DIR }}
+        run: scripts/deploy.sh

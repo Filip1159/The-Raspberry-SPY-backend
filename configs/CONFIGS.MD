@@ -21,7 +21,7 @@ scripts/install_mediamtx_service.sh   # from the backend checkout: copies config
 journalctl -u mediamtx -f             # logs
 ```
 
-After a change of `configs/mediamtx.yml` run the script again (`scripts/deploy.sh` reminds you).
+After a change of `configs/mediamtx.yml` `scripts/deploy.sh` copies it to `/mediamtx` and restarts MediaMTX by itself. Run `install_mediamtx_service.sh` only when `configs/mediamtx.service` changed.
 
 # Nginx
 
@@ -51,7 +51,7 @@ scripts/install_service.sh          # fills in the user / checkout / python of t
 scripts/install_service.sh --print  # just show the unit
 
 # every deployment afterwards
-scripts/deploy.sh                   # git pull --ff-only, pip install if the requirements changed, restart, wait for /health
+scripts/deploy.sh                   # git pull --ff-only, pip install if the requirements changed, apply changed nginx/MediaMTX configs, restart, wait for /health
 
 journalctl -u raspberry-spy -f      # logs
 sudo systemctl status raspberry-spy
@@ -59,6 +59,19 @@ sudo systemctl restart raspberry-spy
 ```
 
 The python used is `<checkout>/.venv/bin/python` (create it with `scripts/setup_venv.sh`), else `python3`.
+
+## Automatic deployment (GitHub Actions)
+
+The `deploy` job in `.github/workflows/ci.yml` runs `scripts/deploy.sh` on the Pi after lint and tests passed, for pushes to `master` only. It needs a self-hosted runner on the Pi (outbound connections only, so the Cloudflare Tunnel is not involved). When the Pi is off the job waits for the runner (GitHub gives up after 24 h).
+
+Setup, once:
+
+1. Repo -> Settings -> Actions -> Runners -> New self-hosted runner (Linux, ARM64). Follow the commands on that page on the Pi as the user that owns the checkout, give it the extra label `raspberry-spy` (`./config.sh ... --labels raspberry-spy`), then `sudo ./svc.sh install && sudo ./svc.sh start`.
+2. Repo -> Settings -> Secrets and variables -> Actions -> Variables: `BACKEND_DIR` = absolute path of the checkout on the Pi.
+3. The runner user needs passwordless sudo for `systemctl restart raspberry-spy.service` / `mediamtx.service`, `systemctl reload nginx`, `nginx -t` and `cp` to the two config files (the default Raspberry Pi OS user has it already).
+4. Repo -> Settings -> Actions -> General: "Require approval for all outside collaborators" for workflows from forks. The runner executes workflow code on the Pi, so never run it for pull requests.
+
+If nginx rejects a changed `configs/default`, the old file is restored and the job fails before the backend restarts. There is no automatic rollback otherwise: fix forward or `git reset --hard <sha>` on the Pi and run `scripts/deploy.sh` (it then does not see a diff, so restart services by hand if configs changed).
 
 ## Old committed virtualenv
 
