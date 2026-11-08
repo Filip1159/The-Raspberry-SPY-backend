@@ -40,7 +40,7 @@ jobs:
     needs: lint-and-test
     # only for pushes to master, never for PRs: the runner executes the workflow on the Raspberry
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    runs-on: [self-hosted, raspberry-spy]
+    runs-on: [self-hosted]
     concurrency:
       group: deploy-raspberry
       cancel-in-progress: false
