@@ -40,7 +40,7 @@ scripts/setup_venv.sh              # .venv + requirements-raspberry.txt
 
 ## FastAPI
 
-`python main.py` serves `app.api.main:asgi_app` with uvicorn (the Flask implementation was removed after the cutover; it is in the git history before the commit "Remove the Flask implementation").
+`python main.py` serves `app.api.main:asgi_app` with uvicorn.
 
 ```bash
 python main.py --fake                    # uvicorn on :8080 (PORT env), simulated hardware; Swagger UI on /docs in fake mode (API_DOCS=1 elsewhere)
