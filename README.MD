@@ -4,7 +4,8 @@ Hello! Welcome to my repository containing the Raspberry SPY app backend - devel
 
 #### Current features :on:
 
-- live camera stream
+- live camera stream (HLS via MediaMTX's native Raspberry Pi camera source, started on demand)
+- stream settings (resolution, frame rate, bitrate, exposure, white balance, focus) changeable at runtime from the UI
 - camera viewing direction control
 - adjustable camera backlight
 - "local" interface built with 20x4 LCD display and rotary encoder
@@ -55,9 +56,19 @@ python main.py --fake
 
 On the Raspberry use `scripts/setup_venv.sh` (installs `requirements-raspberry.txt` into `.venv`) and `python main.py`; for production run it as a systemd service (`scripts/install_service.sh`, updates with `scripts/deploy.sh`, which the `deploy` job of the CI pipeline runs automatically on every push to `master` through a self-hosted runner on the Pi; setup and troubleshooting in `configs/CONFIGS.MD`).
 
-### Gallery 
-<img src="img/img_all.jpg"/>
-<img src="img/img_camera.jpg"/>
-<img src="img/img_raspberry.jpg"/>
-<img src="img/img_raspberry_label.jpg"/>
-<img src="img/img_top_view.jpg"/>
+#### Gallery
+
+<table>
+  <tr>
+    <td width="50%"><img src="img/img_all.jpg" alt="The whole device" /><br /><sub>The whole device</sub></td>
+    <td width="50%"><img src="img/img_camera.jpg" alt="The camera" /><br /><sub>The camera</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="img/img_raspberry.jpg" alt="Raspberry Pi 5" /><br /><sub>Raspberry Pi 5</sub></td>
+    <td width="50%"><img src="img/img_raspberry_label.jpg" alt="Raspberry Pi 5, labelled" /><br /><sub>Raspberry Pi 5, labelled</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="img/img_top_view.jpg" alt="Top view" /><br /><sub>Top view</sub></td>
+    <td width="50%"></td>
+  </tr>
+</table>

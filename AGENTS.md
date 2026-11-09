@@ -1,6 +1,6 @@
 # The Raspberry SPY – backend
 
-Python backend (**FastAPI** + python-socketio on uvicorn) running **on a Raspberry Pi 5** (home network). It drives the hardware (camera pan/tilt servos, camera light, buzzer, 20x4 LCD + rotary encoder), schedules alarms, reads a BLE climate sensor, and issues the JWTs the frontend and MediaMTX use. Frontend repo: `../The-Raspberry-SPY-frontend` (Angular, on GitHub Pages at `https://filipwisniewski.pl`). The shared backlog is `BACKLOG.md` in the **frontend** repo.
+Python backend (**FastAPI** + python-socketio on uvicorn) running **on a Raspberry Pi 5** (home network). It drives the hardware (camera pan/tilt servos, camera light, buzzer, 20x4 LCD + rotary encoder), schedules alarms, reads a BLE climate sensor, and issues the JWTs the frontend and MediaMTX use. Frontend repo: `../The-Raspberry-SPY-frontend` (Angular, on GitHub Pages at `https://filipwisniewski.pl`).
 
 ## Runtime topology (all on the Pi)
 
@@ -12,7 +12,7 @@ browser ──HTTPS──> Cloudflare ──tunnel──> cloudflared ──> ng
 
 - Public hostname `api.filipwisniewski.pl` (Cloudflare Tunnel configured in the Cloudflare dashboard, no config file on the Pi). Setup notes: `configs/CONFIGS.MD`.
 - nginx (`configs/default`) only proxies; it does not serve the frontend or add CORS headers.
-- MediaMTX (`configs/mediamtx.yml`, v1.15.3) reads the camera itself (`source: rpiCamera` on path `cam1`, no `rpicam-vid | ffmpeg` pipeline), serves HLS, and authenticates readers with a JWT (`?jwt=` query) verified against the backend's `/.well-known/jwks.json` (`mediamtx_permissions` claim).
+- MediaMTX (`configs/mediamtx.yml`, v1.15.3) reads the camera itself (`source: rpiCamera` on path `cam1`, no `rpicam-vid | ffmpeg` pipeline), serves HLS, starts the camera only while someone watches (`sourceOnDemand`) and authenticates readers with a JWT (`?jwt=` query, the short-lived stream token from `POST /stream-token`) verified against the backend's `/.well-known/jwks.json`. Its Control API on `127.0.0.1:9997` is how `app/camera_settings.py` changes the stream settings.
 - Port `8765` can run a plain `websockets` server for an Arduino Uno R4 (`app/websocket_manager.py`, experimental, **off** unless `ARDUINO_WEBSOCKET=1`, no authentication; it logs messages and `send()` works).
 
 ## Run / develop
@@ -48,10 +48,10 @@ uvicorn app.api.main:asgi_app            # same, with HARDWARE=fake set in the e
 ```
 
 - `app/api/main.py`: `fastapi_app` (REST) and `asgi_app` = `socketio.ASGIApp(sio, other_asgi_app=fastapi_app)`, the thing to serve. The `lifespan` starts the climate sensor, the Arduino websocket and the LCD interface, plus the 5 s stats broadcast task. Hardware is **not** started on import, so tests can import the app.
-- `app/api/routers/` (health, auth incl. `/refresh` and `/logout`, alarms, greetings, stats), `app/refresh_tokens.py` (opaque random tokens, only SHA-256 hashes in `refresh_tokens.json`, 7 days, rotated on use with a 30 s grace period, set as httpOnly SameSite=Strict cookie; `COOKIE_SECURE`/`REFRESH_TOKEN_DAYS` env, Secure is off in fake mode; CORS allows credentials), `app/api/security.py` (RS256 verification with the public key, `current_user` dependency, 401 bodies `{'msg': ...}`), `app/api/rate_limit.py` (the `limits` library, same limits and `CF-Connecting-IP` key; the login only counts failed attempts), `app/api/sockets.py` (python-socketio `AsyncServer`: handshake JWT, expiry per session, `message` -> servos/LED run in a thread, broadcast loop), `app/api/errors.py` (`ApiError` produces the bodies the frontend expects: `{'error': ...}` 400/429, `{'msg': ...}` 401; 413 for bodies > 64 kB).
+- `app/api/routers/` (health, auth incl. `/refresh`, `/logout` and `/stream-token`, alarms, camera settings, greetings, stats), `app/refresh_tokens.py` (opaque random tokens, only SHA-256 hashes in `refresh_tokens.json`, 7 days, rotated on use with a 30 s grace period, set as httpOnly SameSite=Strict cookie; `COOKIE_SECURE`/`REFRESH_TOKEN_DAYS` env, Secure is off in fake mode; CORS allows credentials), `app/api/security.py` (RS256 verification with the public key, `current_user` dependency, 401 bodies `{'msg': ...}`), `app/api/rate_limit.py` (the `limits` library, same limits and `CF-Connecting-IP` key; the login only counts failed attempts), `app/api/sockets.py` (python-socketio `AsyncServer`: handshake JWT, expiry per session, `message` -> servos/LED run in a thread, broadcast loop), `app/api/errors.py` (`ApiError` produces the bodies the frontend expects: `{'error': ...}` 400/429, `{'msg': ...}` 401; 413 for bodies > 64 kB).
 - Request validation lives in `app/validation.py`. Endpoints read the JSON body themselves instead of Pydantic models on purpose: invalid input must give a 400 + `{'error': ...}` (what the frontend and its mock server expect), not FastAPI's 422. Switching to Pydantic models would be a contract change for both repos.
 - CPU-heavy or blocking work (scrypt password check, JSON file writes, scheduler reload, GPIO) goes through `run_in_threadpool` / `asyncio.to_thread`; never block the event loop.
-- Tests: `tests/test_api.py` (Starlette's `TestClient`: auth, validation, rate limits, CORS, body size), `tests/test_sockets.py` (calls the Socket.IO handlers directly), `tests/test_security.py` (password hashing, JSON store). A real-client check was done with the JavaScript `socket.io-client` (websocket-only, like the Angular app); python-socketio's own client + `websocket-client` is rejected by uvicorn's handshake and is not a good test tool here.
+- Tests: `tests/test_api.py` (Starlette's `TestClient`: auth, validation, rate limits, CORS, body size), `tests/test_sockets.py` (calls the Socket.IO handlers directly), `tests/test_security.py` (password hashing, JSON store), `tests/test_camera_settings.py` (validation, MediaMTX mapping, the REST endpoints against a fake MediaMTX server) and `tests/test_stream_token.py`. A real-client check was done with the JavaScript `socket.io-client` (websocket-only, like the Angular app); python-socketio's own client + `websocket-client` is rejected by uvicorn's handshake and is not a good test tool here.
 - Dependencies: `requirements.txt` (direct dependencies only; `Werkzeug` stays solely for the password hashes in `users.json`), `requirements-raspberry.txt` adds the hardware libraries.
 - nginx serves the API under `/api` and strips the prefix; `/socket.io` goes to the same process. Same port 8080.
 
@@ -91,18 +91,18 @@ configs/                    # nginx, MediaMTX, setup docs
 
 ## Conventions
 
-- Ruff: line length 140, single quotes, space indent, rules E/F/I/B/UP (`pyproject.toml`). Match the existing style: blueprints per resource, the long-lived objects (`MelodyPlayer`, `AlarmManager`, `ServosController`) are created lazily by `get_services()` in `app/services.py` (the lifespan calls it at startup); classes take their dependencies as constructor arguments, so tests build isolated instances, threads with `daemon=True`. Hardware access always goes through the interfaces in `app/hardware/interfaces.py`; add a fake implementation whenever you add a real one.
+- Ruff: line length 140, single quotes, space indent, rules E/F/I/B/UP (`pyproject.toml`). Match the existing style: routers per resource, the long-lived objects (`MelodyPlayer`, `AlarmManager`, `ServosController`) are created lazily by `get_services()` in `app/services.py` (the lifespan calls it at startup); classes take their dependencies as constructor arguments, so tests build isolated instances, threads with `daemon=True`. Hardware access always goes through the interfaces in `app/hardware/interfaces.py`; add a fake implementation whenever you add a real one.
 - Persistence is plain JSON files; there is no database.
 - Secrets/files that must exist on the Pi but are not in git (fake mode generates throwaway ones): `resources/users.json` (list of `{username,password_hash}`, managed with `scripts/manage_users.py`; a legacy file with plain `password` fields is hashed automatically on startup), `resources/private_key.pem`, `resources/public_key.pem` (RS256 pair; the public key is also published as JWKS).
 - Keep CORS origins in `app/allowed_origins.py` and `hlsAllowOrigin` in `mediamtx.yml` in sync with the frontend domain.
 
-## Gotchas / known weak spots (see BACKLOG.md)
+## Gotchas / known weak spots
 
 - Socket.IO sessions stay connected after their JWT expires (the `message` handler then disconnects them) and still receive the 5 s stats broadcast until the client disconnects.
 - The ACT LED is controlled with `os.system('... sudo tee ...')` in `app/hardware/raspberry.py`; the backend must run with passwordless sudo for that to work.
-- Singletons are still created at import time (through `get_hardware()`); a full dependency-injection container is a possible follow-up (BACKLOG E4).
+- Singletons are still created at import time (through `get_hardware()`); a full dependency-injection container is a possible follow-up.
 - Python 3.11 everywhere (Raspberry Pi OS, CI, `pyproject.toml` target). The virtualenv is `.venv` (`scripts/setup_venv.sh`, gitignored). The old virtualenv that used to be committed (`bin/`, `lib64`, `pyvenv.cfg`) is gitignored and no longer tracked; a Pi that still has it can delete it (`rm -rf bin lib lib64 pyvenv.cfg`).
-- Rate-limit counters live in memory (one uvicorn process): they reset on restart and are keyed by the `CF-Connecting-IP` header, which someone with direct access to nginx/Flask on the home network could forge. A Cloudflare rate-limiting rule in front of the tunnel is the second layer (see `configs/CONFIGS.MD`).
-- Tokens last 30 minutes and cannot be refreshed; Socket.IO sessions are only checked for expiry when a message arrives.
+- Rate-limit counters live in memory (one uvicorn process): they reset on restart and are keyed by the `CF-Connecting-IP` header, which someone with direct access to nginx/uvicorn on the home network could forge. A Cloudflare rate-limiting rule in front of the tunnel is the second layer (see `configs/CONFIGS.MD`).
+- Login tokens last 30 minutes; the frontend renews them through `/refresh` (cookie) and reconnects its socket. Socket.IO sessions are only checked for expiry when a message arrives.
 - Adding a user: `python scripts/manage_users.py add <name>` on the Pi (minimum 10 characters); no restart needed, `users.json` is read on every login.
 
