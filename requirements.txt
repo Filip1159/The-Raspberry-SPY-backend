@@ -1,6 +1,6 @@
 # Everything needed to run the backend with simulated hardware (HARDWARE=fake / --fake) on any OS.
 # On a Raspberry install requirements-raspberry.txt instead (these plus the hardware libraries).
-fastapi==0.162.0
+fastapi==0.162.2
 uvicorn[standard]==0.54.0
 python-socketio==5.11.4
 python-engineio==4.9.1
@@ -9,6 +9,6 @@ cryptography==46.0.3
 jwcrypto==1.5.6
 limits==5.8.0
 psutil==7.2.1
-websockets>=13
+websockets>=17.4
 # only for password hashing (werkzeug.security) in app/users.py; existing users.json hashes use its format
 Werkzeug==3.0.4
