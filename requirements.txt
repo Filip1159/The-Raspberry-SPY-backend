@@ -2,8 +2,8 @@
 # On a Raspberry install requirements-raspberry.txt instead (these plus the hardware libraries).
 fastapi==0.162.0
 uvicorn[standard]==0.54.0
-python-socketio==5.11.4
-python-engineio==4.9.1
+python-socketio==5.18.1
+python-engineio==4.15.1
 PyJWT==2.10.1
 cryptography==46.0.3
 jwcrypto==1.5.6
